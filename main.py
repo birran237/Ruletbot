@@ -30,18 +30,17 @@ async def on_ready():
 @bot.tree.command(name="rulet", description="Retar a alguien a la rulet")
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
 async def rulet(interaction: discord.Interaction, persona: discord.Member):
-    await interaction.response.send_message(f"{interaction.user.display_name} ha retado a la rulet a {persona.mention}")
     if interaction.user.id == persona.id or persona.bot:
-        await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
+        await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
         return
 
     if bool(random.randint(0, 1)):
-        await interaction.followup.send(f"Ha perdido {persona.display_name}")
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
         await persona.timeout(timedelta(minutes=5), reason="Ha perdido")
     else:
-        await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
         await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
-    await interaction.followup.send(f"XD")
+    await interaction.response.send_message(f"XD")
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099780065280&integration_type=0&scope=bot+applications.commands
