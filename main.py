@@ -32,8 +32,10 @@ async def on_ready():
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
 async def rulet(interaction: discord.Interaction, persona: discord.Member):
     await interaction.response.send_message(f"{interaction.user.display_name} ha retado a la rulet a {persona.mention}")
-    await asyncio.sleep(2)
+    task = asyncio.create_task(do_rulet(interaction, persona))
 
+async def do_rulet(interaction, persona):
+    await asyncio.sleep(2)
     if interaction.user.id == persona.id or persona.bot or persona.resolved_permissions.moderate_members:
         await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
         return
