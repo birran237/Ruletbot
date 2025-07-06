@@ -7,6 +7,7 @@ import asyncio
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
+import webserver
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -44,5 +45,6 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
         await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
         await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
 
+webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099780065280&integration_type=0&scope=bot+applications.commands
