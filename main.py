@@ -19,22 +19,6 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-async def do_rulet(interaction, persona):
-    try:
-        await asyncio.sleep(2)
-    except Exception as e:
-        logging.error(e)
-    if interaction.user.id == persona.id or persona.bot:
-        await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
-        return
-
-    if random.randint(0,1) == 1:
-        await interaction.followup.send(f"Ha perdido {persona.display_name}")
-        await persona.timeout(timedelta(minutes=5), reason="Ha perdido")
-    else:
-        await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
-        await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
-
 @bot.event
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
@@ -48,7 +32,16 @@ async def on_ready():
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
 async def rulet(interaction: discord.Interaction, persona: discord.Member):
     await interaction.response.send_message(f"{interaction.user.display_name} ha retado a la rulet a {persona.mention}")
-    task = asyncio.create_task(do_rulet(interaction, persona))
+    if interaction.user.id == persona.id or persona.bot:
+        await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
+        return
+
+    if random.randint(0, 1) == 1:
+        await interaction.followup.send(f"Ha perdido {persona.display_name}")
+        await persona.timeout(timedelta(minutes=5), reason="Ha perdido")
+    else:
+        await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
+        await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
 
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
