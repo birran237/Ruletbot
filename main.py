@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 import random
-import asyncio
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
@@ -36,13 +35,13 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
         await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
         return
 
-    if random.randint(0, 1) == 1:
+    if bool(random.randint(0, 1)):
         await interaction.followup.send(f"Ha perdido {persona.display_name}")
         await persona.timeout(timedelta(minutes=5), reason="Ha perdido")
     else:
         await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
         await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
-
+    await interaction.followup.send(f"XD")
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099780065280&integration_type=0&scope=bot+applications.commands
