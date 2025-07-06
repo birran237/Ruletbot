@@ -19,24 +19,9 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-@bot.event
-async def on_ready():
-    print(f"We are ready to go in, {bot.user.name}")
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} commands")
-    except Exception as e:
-        print(e)
-
-@bot.tree.command(name="rulet", description="Retar a alguine a la rulet")
-@app_commands.describe(persona="La persona a la que retaras a la rulet")
-async def rulet(interaction: discord.Interaction, persona: discord.Member):
-    await interaction.response.send_message(f"{interaction.user.display_name} ha retado a la rulet a {persona.mention}")
-    task = asyncio.create_task(do_rulet(interaction, persona))
-
 async def do_rulet(interaction, persona):
     await asyncio.sleep(2)
-    if interaction.user.id == persona.id or persona.bot or persona.resolved_permissions.moderate_members:
+    if interaction.user.id == persona.id or persona.bot:
         await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
         return
 
@@ -46,6 +31,21 @@ async def do_rulet(interaction, persona):
     else:
         await interaction.followup.send(f"Ha perdido {interaction.user.display_name}")
         await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
+
+@bot.event
+async def on_ready():
+    print(f"We are ready to go in, {bot.user.name}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands")
+    except Exception as e:
+        print(e)
+
+@bot.tree.command(name="rulet", description="Retar a alguien a la rulet")
+@app_commands.describe(persona="La persona a la que retaras a la rulet")
+async def rulet(interaction: discord.Interaction, persona: discord.Member):
+    await interaction.response.send_message(f"{interaction.user.display_name} ha retado a la rulet a {persona.mention}")
+    task = asyncio.create_task(do_rulet(interaction, persona))
 
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
