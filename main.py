@@ -38,7 +38,7 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
         await persona.timeout(timedelta(minutes=5), reason="Ha perdido")
     else:
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha perdido")
         await interaction.user.timeout(timedelta(minutes=5), reason="Ha perdido")
     await interaction.response.send_message(f"XD")
 webserver.keep_alive()
