@@ -65,3 +65,5 @@ discord.app_commands.errors.CommandInvokeError: Command 'rulet' raised an except
 [2025-07-06 19:44:17] [DEBUG   ] discord.gateway: For Shard ID None: WebSocket Event: {'t': None, 's': None, 'op': 11, 'd': None}
 [2025-07-06 19:44:58] [DEBUG   ] discord.gateway: Keeping shard ID None websocket alive with sequence 6.
 [2025-07-06 19:44:58] [DEBUG   ] discord.gateway: For Shard ID None: WebSocket Event: {'t': None, 's': None, 'op': 11, 'd': None}
+[2025-07-06 19:45:40] [DEBUG   ] discord.gateway: Keeping shard ID None websocket alive with sequence 6.
+[2025-07-06 19:45:40] [DEBUG   ] discord.gateway: For Shard ID None: WebSocket Event: {'t': None, 's': None, 'op': 11, 'd': None}
