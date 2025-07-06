@@ -20,7 +20,11 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def do_rulet(interaction, persona):
-    await asyncio.sleep(2)
+    try:
+        await asyncio.sleep(2)
+    except asyncio.CancelledError:
+        logging.error("rulet sleep cancelled!")
+        return
     if interaction.user.id == persona.id or persona.bot:
         await interaction.followup.send(f"{interaction.user.display_name} eres sumamente imbécil")
         return
