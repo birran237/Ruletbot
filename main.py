@@ -20,11 +20,21 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def timeout(interaction: discord.Interaction,user:discord.Member):
     minutes = await database.get_guild_timeout(interaction.guild_id)
     if user.resolved_permissions.manage_roles:
-        await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+        await user.move_to(channel=None, reason="Ha perdido")
     else:
-        await user.move_to(channel=None,reason="Ha perdido")
+        await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
 
+async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
+    if interaction.user.id == persona.id or persona.bot:
+        await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
+        return
 
+    if bool(random.randint(0, 1)):
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
+        await timeout(interaction, persona)
+    else:
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha perdido")
+        await timeout(interaction, interaction.user)
 @bot.event
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
@@ -37,16 +47,11 @@ async def on_ready():
 @bot.tree.command(name="rulet", description="Retar a alguien a la rulet")
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
 async def rulet(interaction: discord.Interaction, persona: discord.Member):
-    if interaction.user.id == persona.id or persona.bot:
-        await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
-        return
+    await tirar_rulet(interaction, persona)
 
-    if bool(random.randint(0, 1)):
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
-        await timeout(interaction, persona)
-    else:
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha perdido")
-        await timeout(interaction, interaction.user)
+@bot.tree.context_menu(name="Retar a la rulet")
+async def rulet_context(interaction: discord.Interaction, persona: discord.Member):
+    await tirar_rulet(interaction, persona)
 
 @bot.tree.command(name="set_timeout", description="Configura los minutos de timeout de la rulet")
 @app_commands.checks.has_permissions(administrator=True)
