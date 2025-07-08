@@ -35,14 +35,18 @@ async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
     else:
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha perdido")
         await timeout(interaction, interaction.user)
+
+
 @bot.event
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} commands")
-    except Exception as e:
-        print(e)
+    await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
+    synced = await bot.tree.sync()
+    print(f"Synced {len(synced)} commands")
+
+@bot.event
+async def on_guild_remove(guild:discord.Guild):
+    await database.del_guild_database(guild.id)
 
 @bot.tree.command(name="rulet", description="Retar a alguien a la rulet")
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
