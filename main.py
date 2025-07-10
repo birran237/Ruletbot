@@ -43,7 +43,7 @@ async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
     await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
-    await bot.tree.add_command(SetGroup(name="set",description="Configuración del bot"))
+    bot.tree.add_command(SetGroup(name="set",description="Configuración del bot"))
     synced = await bot.tree.sync()
     print(f"Synced {len(synced)} commands")
 
