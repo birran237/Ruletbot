@@ -28,6 +28,7 @@ async def timeout(interaction: discord.Interaction,user:discord.Member):
 async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
     if interaction.user.id == persona.id or persona.bot:
         await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
+        await persona.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
         return
 
     if bool(random.randint(0, 1)):
@@ -58,22 +59,24 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
 async def rulet_context(interaction: discord.Interaction, persona: discord.Member):
     await tirar_rulet(interaction, persona)
 
-set = app_commands.Group(name="set", description="Modificar la configuración del bot")
+group = app_commands.Group(name="set", description="weas")
 
-
-@set.command(name="timeout", description="Configura los minutos de timeout de la rulet")
+@group.command(name="weas")
+async def set_weas(interaction: discord.Interaction, persona: discord.Member):
+    await interaction.response.send_message(f"{persona.display_name} eres puto",ephemeral=True)
+@bot.tree.command(name="set_timeout", description="Configura los minutos de timeout de la rulet")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutos="Cantidad de minutos (1–60)")
-async def timeout(interaction: discord.Interaction, minutos: int):
+async def set_timeout(interaction: discord.Interaction, minutos: int):
     if minutos < 1 or minutos > 60:
         await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
         return
     await database.set_guild_timeout(interaction.guild_id, minutos)
     await interaction.response.send_message(f"Tiempo de rulet configurado a {minutos} minutos", ephemeral=True)
 
-@set.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores")
+@bot.tree.command(name="set_annoy_admins", description="Elige si afecta o no a los roles superiores")
 @app_commands.checks.has_permissions(administrator=True)
-async def timeout(interaction: discord.Interaction, afectar: bool):
+async def set_annoy_admins(interaction: discord.Interaction, afectar: bool):
     if afectar:
         await interaction.response.send_message(f"Ahora tocaras la polla", ephemeral=True)
     else:
