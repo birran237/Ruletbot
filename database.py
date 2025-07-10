@@ -4,28 +4,16 @@ from google.oauth2 import service_account
 credentials = service_account.Credentials.from_service_account_file("firebase_key.json")
 db = firestore.Client(credentials=credentials)
 
-async def set_guild_timeout(guild_id: int, minutes: int):
+async def save_to_database(guild_id: int, field: str, data):
     doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc_ref.set({"timeout_minutes": minutes})
+    doc_ref.set({field: data})
 
-async def get_guild_timeout(guild_id: int) -> int:
-    doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict().get("timeout_minutes", 5)
-    return 5
-
-async def set_guild_annoy(guild_id: int, annoy: bool):
-    doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc_ref.set({"annoy_admins": annoy})
-
-async def get_guild_annoy(guild_id: int) -> bool:
+async def get_from_database(guild_id: int, field: str, default):
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
     if doc.exists:
-        return doc.to_dict().get("annoy_admins", True)
-    return True
-
+        return doc.to_dict().get(field, default)
+    return default
 
 async def del_guild_database(guild_id: int):
     doc_ref = db.collection("guild_config").document(str(guild_id))

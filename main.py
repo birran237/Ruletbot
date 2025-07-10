@@ -18,24 +18,28 @@ intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def timeout(interaction: discord.Interaction,user:discord.Member):
-    minutes = await database.get_guild_timeout(interaction.guild_id)
-    higher_role = user.top_role >= interaction.guild.me.top_role
-    if user.resolved_permissions.administrator or higher_role:
-        await user.move_to(channel=None, reason="Ha perdido")
-    else:
+    minutes: int = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes", default=5)
+    affect_admins: bool = await database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins", default=True)
+    higher_role: bool = user.top_role >= interaction.guild.me.top_role
+    if not user.resolved_permissions.administrator and not higher_role:
         await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+        return
+    if higher_role and affect_admins:
+        return
+    await user.move_to(channel=None, reason="Ha perdido")
 
-async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
-    if interaction.user.id == persona.id or persona.bot:
+
+async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
+    if interaction.user.id == user.id or user.bot:
         await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
-        await persona.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
+        await user.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
         return
 
     if bool(random.randint(0, 1)):
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha ganado")
-        await timeout(interaction, persona)
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
+        await timeout(interaction, user)
     else:
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {persona.mention} y ha perdido")
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido")
         await timeout(interaction, interaction.user)
 
 
@@ -63,22 +67,22 @@ async def rulet_context(interaction: discord.Interaction, persona: discord.Membe
 class SetGroup(app_commands.Group):
     @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet")
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(minutos="Cantidad de minutos (1–60)")
-    async def set_timeout(self, interaction: discord.Interaction, minutos: int):
-        if minutos < 1 or minutos > 60:
+    @app_commands.describe(minutes="Cantidad de minutos (1–60)")
+    async def set_timeout(self, interaction: discord.Interaction, minutes: int):
+        if minutes < 1 or minutes > 60:
             await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
             return
-        await database.set_guild_timeout(interaction.guild_id, minutos)
-        await interaction.response.send_message(f"Tiempo de rulet configurado a {minutos} minutos", ephemeral=True)
+        await database.save_to_database(guild_id=interaction.guild_id,field="timeout_minutes", data=minutes)
+        await interaction.response.send_message(f"Tiempo de rulet configurado a {minutes} minutos", ephemeral=True)
 
     @app_commands.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores")
     @app_commands.checks.has_permissions(administrator=True)
-    async def set_annoy_admins(self, interaction: discord.Interaction, afectar: bool):
-        if afectar:
-            await interaction.response.send_message(f"Ahora tocaras la polla", ephemeral=True)
+    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool):
+        await database.save_to_database(guild_id=interaction.guild_id, field="annoy_admins", data=affect_admins)
+        if affect_admins:
+            await interaction.response.send_message(f"A partir de ahora la ruleta tambien afectará a los roles superiores", ephemeral=True)
         else:
-            await interaction.response.send_message(f"Ahora no tocaras la polla", ephemeral=True)
-group = app_commands.Group(name="set", description="weas")
+            await interaction.response.send_message(f"A partir de ahora la ruleta ya no afectará a los roles superiores", ephemeral=True)
 
 
 webserver.keep_alive()
