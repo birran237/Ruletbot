@@ -19,7 +19,8 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def timeout(interaction: discord.Interaction,user:discord.Member):
     minutes = await database.get_guild_timeout(interaction.guild_id)
-    if user.resolved_permissions.administrator:
+    higher_role = user.top_role >= interaction.guild.me.top_role
+    if user.resolved_permissions.administrator or higher_role:
         await user.move_to(channel=None, reason="Ha perdido")
     else:
         await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
