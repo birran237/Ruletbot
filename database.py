@@ -6,7 +6,7 @@ db = firestore.Client(credentials=credentials)
 
 async def save_to_database(guild_id: int, field: str, data):
     doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc_ref.set({field: data})
+    doc_ref.set({field: data},merge=True)
 
 async def get_from_database(guild_id: int, field: str, default):
     doc_ref = db.collection("guild_config").document(str(guild_id))
