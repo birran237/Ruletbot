@@ -58,17 +58,26 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
 async def rulet_context(interaction: discord.Interaction, persona: discord.Member):
     await tirar_rulet(interaction, persona)
 
-@bot.tree.command(name="set_timeout", description="Configura los minutos de timeout de la rulet")
+set = app_commands.Group(name="set", description="Modificar la configuración del bot")
+
+
+@set.command(name="timeout", description="Configura los minutos de timeout de la rulet")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutos="Cantidad de minutos (1–60)")
-async def set_timeout(interaction: discord.Interaction, minutos: int):
+async def timeout(interaction: discord.Interaction, minutos: int):
     if minutos < 1 or minutos > 60:
         await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
         return
     await database.set_guild_timeout(interaction.guild_id, minutos)
     await interaction.response.send_message(f"Tiempo de rulet configurado a {minutos} minutos", ephemeral=True)
 
-
+@set.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores")
+@app_commands.checks.has_permissions(administrator=True)
+async def timeout(interaction: discord.Interaction, afectar: bool):
+    if afectar:
+        await interaction.response.send_message(f"Ahora tocaras la polla", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Ahora no tocaras la polla", ephemeral=True)
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099780065280&integration_type=0&scope=bot+applications.commands
