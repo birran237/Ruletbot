@@ -24,7 +24,7 @@ async def timeout(interaction: discord.Interaction,user:discord.Member):
     if not user.resolved_permissions.administrator and not higher_role:
         await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
         return
-    if higher_role and affect_admins:
+    if higher_role and not affect_admins:
         return
     await user.move_to(channel=None, reason="Ha perdido")
 
