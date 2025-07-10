@@ -43,6 +43,7 @@ async def tirar_rulet(interaction: discord.Interaction,persona:discord.Member):
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
     await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
+    await bot.tree.add_command(SetGroup(name="set",description="Configuración del bot"))
     synced = await bot.tree.sync()
     print(f"Synced {len(synced)} commands")
 
@@ -59,28 +60,27 @@ async def rulet(interaction: discord.Interaction, persona: discord.Member):
 async def rulet_context(interaction: discord.Interaction, persona: discord.Member):
     await tirar_rulet(interaction, persona)
 
+class SetGroup(app_commands.Group):
+    @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet")
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(minutos="Cantidad de minutos (1–60)")
+    async def set_timeout(self, interaction: discord.Interaction, minutos: int):
+        if minutos < 1 or minutos > 60:
+            await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
+            return
+        await database.set_guild_timeout(interaction.guild_id, minutos)
+        await interaction.response.send_message(f"Tiempo de rulet configurado a {minutos} minutos", ephemeral=True)
+
+    @app_commands.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def set_annoy_admins(self, interaction: discord.Interaction, afectar: bool):
+        if afectar:
+            await interaction.response.send_message(f"Ahora tocaras la polla", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Ahora no tocaras la polla", ephemeral=True)
 group = app_commands.Group(name="set", description="weas")
 
-@group.command(name="weas")
-async def set_weas(interaction: discord.Interaction, persona: discord.Member):
-    await interaction.response.send_message(f"{persona.display_name} eres puto",ephemeral=True)
-@bot.tree.command(name="set_timeout", description="Configura los minutos de timeout de la rulet")
-@app_commands.checks.has_permissions(administrator=True)
-@app_commands.describe(minutos="Cantidad de minutos (1–60)")
-async def set_timeout(interaction: discord.Interaction, minutos: int):
-    if minutos < 1 or minutos > 60:
-        await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
-        return
-    await database.set_guild_timeout(interaction.guild_id, minutos)
-    await interaction.response.send_message(f"Tiempo de rulet configurado a {minutos} minutos", ephemeral=True)
 
-@bot.tree.command(name="set_annoy_admins", description="Elige si afecta o no a los roles superiores")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_annoy_admins(interaction: discord.Interaction, afectar: bool):
-    if afectar:
-        await interaction.response.send_message(f"Ahora tocaras la polla", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Ahora no tocaras la polla", ephemeral=True)
 webserver.keep_alive()
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
-#https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099780065280&integration_type=0&scope=bot+applications.commands
+#https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099528407040&integration_type=0&scope=applications.commands+bot
