@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 import webserver
 import database
+from asyncio import create_task
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -18,13 +19,13 @@ intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def timeout(interaction: discord.Interaction,user:discord.Member):
-    minutes: int = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes", default=5)
-    affect_admins: bool = await database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins", default=True)
+    minutes = create_task(database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes", default=5))
+    affect_admins = create_task(database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins", default=True))
     higher_role: bool = user.top_role >= interaction.guild.me.top_role
     if not user.resolved_permissions.administrator and not higher_role:
-        await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+        await user.timeout(timedelta(minutes= await minutes), reason="Ha perdido")
         return
-    if higher_role and not affect_admins:
+    if higher_role and not await affect_admins:
         return
     await user.move_to(channel=None, reason="Ha perdido")
 
@@ -65,24 +66,30 @@ async def rulet_context(interaction: discord.Interaction, persona: discord.Membe
     await tirar_rulet(interaction, persona)
 
 class SetGroup(app_commands.Group):
-    @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet")
+    @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(minutes="Cantidad de minutos (1–60)")
-    async def set_timeout(self, interaction: discord.Interaction, minutes: int):
-        if minutes < 1 or minutes > 60:
-            await interaction.response.send_message("Debe estar entre 1 y 60 minutos.", ephemeral=True)
+    async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 1, 60] = None):
+        if minutes is None:
+            db_minutes: int = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes",default=5)
+            await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {db_minutes} minutos", ephemeral=True)
             return
+
         await database.save_to_database(guild_id=interaction.guild_id,field="timeout_minutes", data=minutes)
         await interaction.response.send_message(f"Tiempo de rulet configurado a {minutes} minutos", ephemeral=True)
 
-    @app_commands.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores")
+    @app_commands.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
-    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool):
+    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool = None):
+        if affect_admins is None:
+            db_affect_admins: bool = await database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins",default=True)
+            message_mod = "también" if db_affect_admins else "no"
+            await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores", ephemeral=True)
+            return
+
         await database.save_to_database(guild_id=interaction.guild_id, field="annoy_admins", data=affect_admins)
-        if affect_admins:
-            await interaction.response.send_message(f"A partir de ahora la ruleta tambien afectará a los roles superiores", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"A partir de ahora la ruleta ya no afectará a los roles superiores", ephemeral=True)
+        message_mod = "también" if affect_admins else "ya no"
+        await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores",ephemeral=True)
 
 
 webserver.keep_alive()
