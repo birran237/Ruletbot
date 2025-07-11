@@ -28,7 +28,7 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
 
     disabled_time = get_disabled_status(interaction.guild_id)
     if disabled_time is not None:
-        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{disabled_time//3600}horas, {disabled_time%3600//60} minutos y {disabled_time%60} segundos**.")
+        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{disabled_time//3600}horas, {disabled_time%3600//60} minutos y {round(disabled_time%60)} segundos**.")
         return
     if bool(random.randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
@@ -41,7 +41,7 @@ async def timeout(interaction: discord.Interaction,user:discord.Member):
     minutes = create_task(database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes", default=5))
     affect_admins = create_task(database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins", default=True))
     higher_role: bool = user.top_role >= interaction.guild.me.top_role
-        if not user.resolved_permissions.administrator and not higher_role:
+    if not user.resolved_permissions.administrator and not higher_role:
         await user.timeout(timedelta(minutes= await minutes), reason="Ha perdido")
         return
     if higher_role and not await affect_admins:
