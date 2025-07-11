@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import logging
-import random
+from random import randint
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
@@ -30,7 +30,7 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
     if disabled_time is not None:
         await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{disabled_time//3600}horas, {disabled_time%3600//60} minutos y {round(disabled_time%60)} segundos**.")
         return
-    if bool(random.randint(0, 1)):
+    if bool(randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
         await timeout(interaction, user)
     else:
@@ -81,7 +81,7 @@ async def rulet_context(interaction: discord.Interaction, persona: discord.Membe
 
 
 disabled_servers = {}
-@app_commands.command(name="disable",description="Deshabilita el bot durante los minutos especificados")
+@bot.tree.command(name="disable",description="Deshabilita el bot durante los minutos especificados")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
 async def disable(interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 1440]):
