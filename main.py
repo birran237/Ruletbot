@@ -28,7 +28,7 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
 
     disabled_time = get_disabled_status(interaction.guild_id)
     if disabled_time is not None:
-        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{disabled_time//3600}horas, {disabled_time%3600//60} minutos y {round(disabled_time%60)} segundos**.")
+        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{round(disabled_time//3600)}horas, {round(disabled_time%3600//60)} minutos y {round(disabled_time%60)} segundos**.")
         return
     if bool(randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
@@ -85,8 +85,13 @@ disabled_servers = {}
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
 async def disable(interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 1440]):
+    if minutes == 0:
+        disabled_servers.pop(interaction.guild_id, None)
+        await interaction.response.send_message(f"El bot vuelve a funcionar correctamente", ephemeral=True)
+        return
     expire_at = time() + (minutes * 60)
     disabled_servers[interaction.guild_id] = expire_at
+    await interaction.response.send_message(f"El bot no funcionará hasta dentro de {minutes} minutos",ephemeral=True)
 
     async def enable():
         await sleep(minutes*60)
