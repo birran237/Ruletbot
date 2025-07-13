@@ -28,7 +28,7 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
 
     disabled_time = get_disabled_status(interaction.guild_id)
     if disabled_time is not None:
-        await interaction.response.send_message(f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{format_seconds(disabled_time)} {disabled_time%60}s**.")
+        await interaction.response.send_message(f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{format_seconds(int(disabled_time))} {round(disabled_time%60)}s**.")
         return
     if bool(randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
@@ -57,7 +57,7 @@ def get_disabled_status(guild_id: int):
         return None
     return remaining
 
-def format_seconds(seconds:float)-> str:
+def format_seconds(seconds:int)-> str:
      days, remainder = divmod(seconds, 86400)
      hours, remainder = divmod(remainder, 3600)
      minutes = remainder // 60
@@ -105,7 +105,7 @@ async def disable(interaction: discord.Interaction, minutes: app_commands.Range[
         return
     expire_at = time() + (minutes * 60)
     disabled_servers[interaction.guild_id] = expire_at
-    await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{format_seconds(minutes*60)}**",ephemeral=True)
+    await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{format_seconds(int(minutes*60))}**",ephemeral=True)
 
     async def enable():
         await sleep(minutes*60)
@@ -119,7 +119,7 @@ class SetGroup(app_commands.Group):
     @app_commands.describe(minutes="Cantidad de minutos (1–60)")
     async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 1, 60] = None):
         if minutes is None:
-            db_minutes: int = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes",default=5)
+            db_minutes, _ = await database.get_from_database(guild_id=interaction.guild_id)
             await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {db_minutes} minutos", ephemeral=True)
             return
 
@@ -130,7 +130,7 @@ class SetGroup(app_commands.Group):
     @app_commands.checks.has_permissions(administrator=True)
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool = None):
         if affect_admins is None:
-            db_affect_admins: bool = await database.get_from_database(guild_id=interaction.guild_id, field="annoy_admins",default=True)
+            _, db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id)
             message_mod = "también" if db_affect_admins else "no"
             await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores", ephemeral=True)
             return
