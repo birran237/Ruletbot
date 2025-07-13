@@ -23,7 +23,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
     if interaction.user.id == user.id or user.bot:
         await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
-        await user.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
+        await interaction.user.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
         return
 
     disabled_time = get_disabled_status(interaction.guild_id)
