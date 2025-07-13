@@ -28,7 +28,7 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
 
     disabled_time = get_disabled_status(interaction.guild_id)
     if disabled_time is not None:
-        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{round(disabled_time//3600)}horas, {round(disabled_time%3600//60)} minutos y {round(disabled_time%60)} segundos**.")
+        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{format_seconds(disabled_time)} {disabled_time%60}s**.")
         return
     if bool(randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
@@ -58,6 +58,21 @@ def get_disabled_status(guild_id: int):
         return None
     return remaining
 
+def format_seconds(seconds:float)-> str:
+     days, remainder = divmod(seconds, 86400)
+     hours, remainder = divmod(remainder, 3600)
+     minutes = remainder // 60
+     parts = []
+     if days:
+        parts.append(f"{days}d")
+        parts.append(f"{hours}h")
+     elif hours:
+        parts.append(f"{hours}h")
+     parts.append(f"{minutes}m")
+
+     return ' '.join(parts)
+
+
 @bot.event
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
@@ -84,14 +99,14 @@ disabled_servers = {}
 @bot.tree.command(name="disable",description="Deshabilita el bot durante los minutos especificados")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
-async def disable(interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 1440]):
+async def disable(interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080]):
     if minutes == 0:
         disabled_servers.pop(interaction.guild_id, None)
         await interaction.response.send_message(f"El bot vuelve a funcionar correctamente", ephemeral=True)
         return
     expire_at = time() + (minutes * 60)
     disabled_servers[interaction.guild_id] = expire_at
-    await interaction.response.send_message(f"El bot no funcionará hasta dentro de {minutes} minutos",ephemeral=True)
+    await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{format_seconds(minutes*60)}**",ephemeral=True)
 
     async def enable():
         await sleep(minutes*60)
