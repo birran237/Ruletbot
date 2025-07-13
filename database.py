@@ -8,12 +8,12 @@ async def save_to_database(guild_id: int, field: str, data):
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc_ref.set({field: data},merge=True)
 
-async def get_from_database(guild_id: int, field: str, default):
+async def get_from_database(guild_id: int):
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
     if doc.exists:
-        return doc.to_dict().get(field, default)
-    return default
+        return doc.to_dict().get("timeout_minutes", 5), doc.to_dict().get("annoy_admins", True)
+    return 5, True
 
 async def del_guild_database(guild_id: int):
     doc_ref = db.collection("guild_config").document(str(guild_id))
