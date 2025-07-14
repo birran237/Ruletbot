@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -8,15 +9,12 @@ from dotenv import load_dotenv
 import os
 import webserver
 import database
-from asyncio import create_task, sleep
 from time import time
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
-
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
@@ -38,12 +36,13 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
         await timeout(interaction, interaction.user)
 
 async def timeout(interaction: discord.Interaction,user:discord.Member):
-    minutes, affect_admins = await database.get_from_database(guild_id=interaction.guild_id)
+    minutes = asyncio.create_task(database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes"))
+    affect_admins = asyncio.create_task(database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins"))
     higher_role: bool = user.top_role >= interaction.guild.me.top_role
     if not user.resolved_permissions.administrator and not higher_role:
-        await user.timeout(timedelta(minutes= minutes), reason="Ha perdido")
+        await user.timeout(timedelta(minutes= await minutes), reason="Ha perdido")
         return
-    if higher_role and not affect_admins:
+    if higher_role and not await affect_admins:
         return
     await user.move_to(channel=None, reason="Ha perdido")
 
@@ -108,18 +107,18 @@ async def disable(interaction: discord.Interaction, minutes: app_commands.Range[
     await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{format_seconds(int(minutes*60))}**",ephemeral=True)
 
     async def enable():
-        await sleep(minutes*60)
+        await asyncio.sleep(minutes*60)
         if disabled_servers.get(interaction.guild_id) == expire_at:
             del disabled_servers[interaction.guild_id]
 
-    create_task(enable())
+    asyncio.create_task(enable())
 class SetGroup(app_commands.Group):
     @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(minutes="Cantidad de minutos (1–60)")
     async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 1, 60] = None):
         if minutes is None:
-            db_minutes, _ = await database.get_from_database(guild_id=interaction.guild_id)
+            db_minutes = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
             await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {db_minutes} minutos", ephemeral=True)
             return
 
@@ -130,7 +129,7 @@ class SetGroup(app_commands.Group):
     @app_commands.checks.has_permissions(administrator=True)
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool = None):
         if affect_admins is None:
-            _, db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id)
+            db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="affect_admins")
             message_mod = "también" if db_affect_admins else "no"
             await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores", ephemeral=True)
             return
@@ -139,7 +138,22 @@ class SetGroup(app_commands.Group):
         message_mod = "también" if affect_admins else "ya no"
         await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores",ephemeral=True)
 
+async def main():
 
+    discord.utils.setup_logging(
+        handler=logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'),
+        level=logging.DEBUG
+    )
+
+    async def runner():
+        async with bot:
+            await bot.start(token)
+
+    await asyncio.gather(
+        runner(),
+        database.local_db_cleanup()
+    )
 webserver.keep_alive()
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+asyncio.run(main())
+
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099528407040&integration_type=0&scope=applications.commands+bot
