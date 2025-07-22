@@ -25,10 +25,13 @@ async def get_from_database(guild_id: int, field: str):
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
-    if doc.exists:
+
+    if len(local_db) < 500:
         local_db[guild_id] = doc.to_dict()
+
+    if doc.exists:
         return doc.to_dict().get(field, defaults[field])
-    local_db[guild_id] = doc.to_dict()
+
     return defaults[field]
 
 async def del_guild_database(guild_id: int):

@@ -153,7 +153,9 @@ async def main():
         runner(),
         database.local_db_cleanup()
     )
-webserver.keep_alive()
-asyncio.run(main())
+
+if __name__ == '__main__':
+    webserver.keep_alive()
+    asyncio.run(main())
 
 #https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099528407040&integration_type=0&scope=applications.commands+bot
