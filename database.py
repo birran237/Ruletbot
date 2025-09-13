@@ -4,10 +4,12 @@ import os
 import json
 import datetime
 import asyncio
+from dotenv import load_dotenv
 
 local_db = {}
 defaults = {"timeout_minutes":5,"annoy_admins":True}
 
+load_dotenv()
 firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
 firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
 creds_dict = json.loads(firebase_credentials)
