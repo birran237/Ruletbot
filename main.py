@@ -57,8 +57,8 @@ def get_disabled_status(guild_id: int):
     return remaining
 
 def format_seconds(seconds:int)-> str:
-     days, remainder = divmod(seconds, 86400)
-     hours, remainder = divmod(remainder, 3600)
+     days, remainder = divmod(seconds, 60*60*24)
+     hours, remainder = divmod(remainder, 60*60)
      minutes = remainder // 60
      parts = []
      if days:
@@ -98,6 +98,7 @@ disabled_servers = {}
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
 async def disable(interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080]):
+    global disabled_servers
     if minutes == 0:
         disabled_servers.pop(interaction.guild_id, None)
         await interaction.response.send_message(f"El bot vuelve a funcionar correctamente", ephemeral=True)
@@ -127,7 +128,7 @@ class SetGroup(app_commands.Group):
 
     @app_commands.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
-    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool = None):
+    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool | None = None):
         if affect_admins is None:
             db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="affect_admins")
             message_mod = "también" if db_affect_admins else "no"

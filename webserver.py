@@ -9,7 +9,7 @@ def home():
     return "Discord bot ok"
 
 def run():
-    port = int(os.environ.get("PORT", 8080))  # Render uses dynamic port sometimes
+    port = int(os.environ.get("PORT", 5000))  # Render uses dynamic port sometimes
     app.run(host='0.0.0.0', port=port, debug=False)  # Explicitly turn off debug
 
 def keep_alive():

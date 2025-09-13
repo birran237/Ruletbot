@@ -1,12 +1,19 @@
 from google.cloud import firestore
 from google.oauth2 import service_account
+import os
+import json
 import datetime
 import asyncio
 
 local_db = {}
 defaults = {"timeout_minutes":5,"annoy_admins":True}
-credentials = service_account.Credentials.from_service_account_file("firebase_key.json")
-db = firestore.Client(credentials=credentials)
+
+firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
+firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
+creds_dict = json.loads(firebase_credentials)
+credentials = service_account.Credentials.from_service_account_info(creds_dict)
+db = firestore.Client(credentials=credentials, project=firebase_project_id)
+
 
 async def save_to_database(guild_id: int, field: str, data):
     if field not in defaults:
