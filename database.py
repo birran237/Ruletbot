@@ -9,33 +9,48 @@ from dotenv import load_dotenv
 local_db = {}
 defaults = {"timeout_minutes":5,"annoy_admins":True}
 
+use_database:bool = False
 load_dotenv()
 firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
 firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
-creds_dict = json.loads(firebase_credentials)
-credentials = service_account.Credentials.from_service_account_info(creds_dict)
-db = firestore.Client(credentials=credentials, project=firebase_project_id)
+if firebase_project_id and firebase_credentials:
+    try:
+        creds_dict = json.loads(firebase_credentials)
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        db = firestore.Client(credentials=credentials, project=firebase_project_id)
+    except Exception as e:
+        print(f"Failed to connect to firebase: {e}")
+    else:
+        print(f"Connected to firebase")
+        use_database = True
 
 
-async def save_to_database(guild_id: int, field: str, data):
+async def save_to_database(guild_id: int, field: str, data: int | bool) -> None:
     if field not in defaults:
         raise Exception(f"Field {field} is not defined")
     if guild_id in local_db:
         local_db[guild_id][field] = data
-    doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc_ref.set({field: data},merge=True)
+    if use_database:
+        doc_ref = db.collection("guild_config").document(str(guild_id))
+        doc_ref.set(document_data={field: data},merge=True)
+    else:
+        local_db[guild_id] = defaults
 
-async def get_from_database(guild_id: int, field: str):
+
+async def get_from_database(guild_id: int, field: str) -> int | bool:
     if field not in defaults:
         raise Exception(f"Field {field} is not defined")
 
     if guild_id in local_db:
         return local_db[guild_id].get(field, defaults[field])
 
-    doc_ref = db.collection("guild_config").document(str(guild_id))
-    doc = doc_ref.get()
+    if use_database:
+        doc_ref = db.collection("guild_config").document(str(guild_id))
+        doc = doc_ref.get()
+    else:
+        return defaults[field]
 
-    if len(local_db) < 500:
+    if len(local_db) < 100:
         local_db[guild_id] = doc.to_dict()
 
     if doc.exists:
@@ -66,5 +81,5 @@ async def local_db_cleanup():
             local_db.clear()
             last_run_month = current_month
 
-        # Sleep asynchronously (e.g., check every hour)
-        await asyncio.sleep(86400)
+        # Sleep asynchronously (e.g., check every day)
+        await asyncio.sleep(60*60*24)

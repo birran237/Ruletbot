@@ -7,7 +7,6 @@ from random import randint
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
-import webserver
 import database
 from time import time
 
@@ -17,17 +16,20 @@ token = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+director_guild:int = int(os.getenv('DIRECTOR_GUILD'))
 
 async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
     if interaction.user.id == user.id or user.bot:
-        await interaction.response.send_message(f"{interaction.user.display_name} eres sumamente imbécil")
-        await interaction.user.timeout(timedelta(minutes=10), reason="Es minguito el pobre")
+        await interaction.response.send_message(f"{interaction.user.display_name} creo que te amamantaron con RedBull")
+        minutes = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
+        await interaction.user.timeout(timedelta(minutes=minutes*5), reason="Es minguito el pobre")
         return
 
     disabled_time = get_disabled_status(interaction.guild_id)
     if disabled_time is not None:
         await interaction.response.send_message(f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{format_seconds(int(disabled_time))} {round(disabled_time%60)}s**.")
         return
+
     if bool(randint(0, 1)):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
         await timeout(interaction, user)
@@ -36,17 +38,17 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
         await timeout(interaction, interaction.user)
 
 async def timeout(interaction: discord.Interaction,user:discord.Member):
-    minutes = asyncio.create_task(database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes"))
-    affect_admins = asyncio.create_task(database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins"))
+    minutes = await database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes")
+    affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins")
     higher_role: bool = user.top_role >= interaction.guild.me.top_role
-    if not user.resolved_permissions.administrator and not higher_role:
-        await user.timeout(timedelta(minutes= await minutes), reason="Ha perdido")
-        return
-    if higher_role and not await affect_admins:
-        return
-    await user.move_to(channel=None, reason="Ha perdido")
 
-def get_disabled_status(guild_id: int):
+    if (user.resolved_permissions.administrator or higher_role) and affect_admins:
+        await user.move_to(channel=None, reason="Ha perdido")
+        return
+
+    await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+
+def get_disabled_status(guild_id: int) -> float | None:
     expire_at = disabled_servers.get(guild_id)
     if not expire_at:
         return None
@@ -56,7 +58,7 @@ def get_disabled_status(guild_id: int):
         return None
     return remaining
 
-def format_seconds(seconds:int)-> str:
+async def format_seconds(seconds:int)-> str:
      days, remainder = divmod(seconds, 60*60*24)
      hours, remainder = divmod(remainder, 60*60)
      minutes = remainder // 60
@@ -74,14 +76,18 @@ def format_seconds(seconds:int)-> str:
 @bot.event
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
-    await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
-    bot.tree.add_command(SetGroup(name="set",description="Configuración del bot"))
-    synced = await bot.tree.sync()
-    print(f"Synced {len(synced)} commands")
+    await bot.tree.sync(guild=discord.Object(director_guild))
 
 @bot.event
 async def on_guild_remove(guild:discord.Guild):
     await database.del_guild_database(guild.id)
+
+@bot.tree.command(guild=discord.Object(director_guild), description="Sincronizar el arbol de comandos global")
+async def sync_tree(interaction: discord.Interaction):
+    await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
+    bot.tree.add_command(SetGroup(name="set", description="Configuración del bot"))
+    synced = await bot.tree.sync()
+    await interaction.response.send_message(f"Succesfully synced {len(synced)} commands")
 
 @bot.tree.command(name="rulet", description="Retar a alguien a la rulet")
 @app_commands.describe(persona="La persona a la que retaras a la rulet")
@@ -113,6 +119,7 @@ async def disable(interaction: discord.Interaction, minutes: app_commands.Range[
             del disabled_servers[interaction.guild_id]
 
     asyncio.create_task(enable())
+
 class SetGroup(app_commands.Group):
     @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
@@ -156,7 +163,4 @@ async def main():
     )
 
 if __name__ == '__main__':
-    webserver.keep_alive()
     asyncio.run(main())
-
-#https://discord.com/oauth2/authorize?client_id=1391344171452727398&permissions=1099528407040&integration_type=0&scope=applications.commands+bot
