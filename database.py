@@ -2,8 +2,6 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 import os
 import json
-import datetime
-import asyncio
 from dotenv import load_dotenv
 
 local_db = {}
@@ -13,16 +11,11 @@ use_database:bool = False
 load_dotenv()
 firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
 firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
-if firebase_project_id and firebase_credentials:
-    try:
-        creds_dict = json.loads(firebase_credentials)
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        db = firestore.Client(credentials=credentials, project=firebase_project_id)
-    except Exception as e:
-        print(f"Failed to connect to firebase: {e}")
-    else:
-        print(f"Connected to firebase")
-        use_database = True
+
+creds_dict = json.loads(firebase_credentials)
+credentials = service_account.Credentials.from_service_account_info(creds_dict)
+db = firestore.Client(credentials=credentials, project=firebase_project_id)
+print(f"Connected to firebase")
 
 
 async def save_to_database(guild_id: int, field: str, data: int | bool) -> None:
@@ -52,6 +45,8 @@ async def get_from_database(guild_id: int, field: str) -> int | bool:
 
     if len(local_db) < 100:
         local_db[guild_id] = doc.to_dict()
+    else:
+        local_db.clear()
 
     if doc.exists:
         return doc.to_dict().get(field, defaults[field])
@@ -68,18 +63,3 @@ async def del_guild_database(guild_id: int):
     for docs in doc_ref.get().to_dict():
         doc_ref.update({docs: firestore.DELETE_FIELD})
     doc_ref.delete()
-
-async def local_db_cleanup():
-    last_run_month = None
-    local_db.clear()
-
-    while True:
-        now = datetime.datetime.now()
-        current_month = (now.year, now.month)
-
-        if current_month != last_run_month and now.day == 1:
-            local_db.clear()
-            last_run_month = current_month
-
-        # Sleep asynchronously (e.g., check every day)
-        await asyncio.sleep(60*60*24)

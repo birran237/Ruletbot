@@ -1,4 +1,6 @@
 import asyncio
+from logging import exception
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -7,16 +9,24 @@ from random import randint
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
-import database
 from time import time
+
+database_error = None
+try:
+    import database
+except Exception as e:
+    database_error = e
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+if token is None:
+    raise ValueError('DISCORD_TOKEN is not set')
 
 intents = discord.Intents.default()
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-director_guild:int = int(os.getenv('DIRECTOR_GUILD'))
+director_guild_id:int = int(os.getenv('DIRECTOR_GUILD'))
 
 async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
     if interaction.user.id == user.id or user.bot:
@@ -30,23 +40,36 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
         await interaction.response.send_message(f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{format_seconds(int(disabled_time))} {round(disabled_time%60)}s**.")
         return
 
-    if bool(randint(0, 1)):
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
-        await timeout(interaction, user)
-    else:
-        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido")
-        await timeout(interaction, interaction.user)
-
-async def timeout(interaction: discord.Interaction,user:discord.Member):
-    minutes = await database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes")
     affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins")
     higher_role: bool = user.top_role >= interaction.guild.me.top_role
 
-    if (user.resolved_permissions.administrator or higher_role) and affect_admins:
+    if (user.resolved_permissions.administrator or higher_role) and not affect_admins:
+        await interaction.response.send_message(f"{user.display_name} es un administrador y no le puedes retar", ephemeral=True)
+        return
+
+    if bool(randint(0, 1)):
+        await timeout(interaction=interaction, user=user, higher_role=higher_role)
+        await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
+        return
+
+    await timeout(interaction=interaction, user=interaction.user, higher_role=higher_role)
+    await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido")
+    return
+
+
+async def timeout(interaction: discord.Interaction,user:discord.Member, higher_role:bool):
+    minutes: int = await database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes")
+
+    if user.resolved_permissions.administrator or higher_role:
+        await user.move_to(channel=None, reason="Ha perdido")
+        return
+
+    if minutes == 0:
         await user.move_to(channel=None, reason="Ha perdido")
         return
 
     await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+    return
 
 def get_disabled_status(guild_id: int) -> float | None:
     expire_at = disabled_servers.get(guild_id)
@@ -75,14 +98,19 @@ async def format_seconds(seconds:int)-> str:
 
 @bot.event
 async def on_ready():
+    if database_error is not None:
+        director_guild = bot.get_guild(director_guild_id)
+        await director_guild.system_channel.send(f"The database failed with error: {database_error}")
+        print(f"The database failed with error: {database_error}")
+        exit(1)
     print(f"We are ready to go in, {bot.user.name}")
-    await bot.tree.sync(guild=discord.Object(director_guild))
+    await bot.tree.sync(guild=discord.Object(director_guild_id))
 
 @bot.event
 async def on_guild_remove(guild:discord.Guild):
     await database.del_guild_database(guild.id)
 
-@bot.tree.command(guild=discord.Object(director_guild), description="Sincronizar el arbol de comandos global")
+@bot.tree.command(guild=discord.Object(director_guild_id), description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
     await bot.change_presence(activity=discord.CustomActivity(name="Pegando escopetazos"))
     bot.tree.add_command(SetGroup(name="set", description="Configuración del bot"))
@@ -124,7 +152,7 @@ class SetGroup(app_commands.Group):
     @app_commands.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para saber la configuración actual)")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(minutes="Cantidad de minutos (1–60)")
-    async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 1, 60] = None):
+    async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 0, 60] = None):
         if minutes is None:
             db_minutes = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
             await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {db_minutes} minutos", ephemeral=True)
@@ -139,28 +167,12 @@ class SetGroup(app_commands.Group):
         if affect_admins is None:
             db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="affect_admins")
             message_mod = "también" if db_affect_admins else "no"
-            await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores", ephemeral=True)
+            await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores y a los administradores", ephemeral=True)
             return
 
         await database.save_to_database(guild_id=interaction.guild_id, field="annoy_admins", data=affect_admins)
         message_mod = "también" if affect_admins else "ya no"
-        await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores",ephemeral=True)
+        await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores ni a administradores",ephemeral=True)
 
-async def main():
-
-    discord.utils.setup_logging(
-        handler=logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'),
-        level=logging.DEBUG
-    )
-
-    async def runner():
-        async with bot:
-            await bot.start(token)
-
-    await asyncio.gather(
-        runner(),
-        database.local_db_cleanup()
-    )
-
-if __name__ == '__main__':
-    asyncio.run(main())
+if __name__ == "__main__":
+    bot.run(token, log_handler=handler, log_level=logging.DEBUG)
