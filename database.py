@@ -2,13 +2,11 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 import os
 import json
-from dotenv import load_dotenv
 
 local_db = {}
 defaults = {"timeout_minutes":5,"annoy_admins":True}
 
 
-load_dotenv()
 firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
 firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
 
@@ -40,7 +38,7 @@ async def get_from_database(guild_id: int, field: str) -> int | bool:
 
 
     if len(local_db) < 100:
-        local_db[guild_id] = doc.to_dict()
+        local_db[guild_id] = defaults|doc.to_dict() #save db contents to local_db, and fill with defaults
     else:
         local_db.clear()
 

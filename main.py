@@ -1,13 +1,10 @@
 import asyncio
-from logging import exception
-
 import discord
 from discord import app_commands
 from discord.ext import commands
 import logging
 from random import randint
 from datetime import timedelta
-from dotenv import load_dotenv
 import os
 from time import time
 
@@ -17,7 +14,6 @@ try:
 except Exception as e:
     database_error = e
 
-load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')
@@ -71,7 +67,9 @@ async def timeout(interaction: discord.Interaction,user:discord.Member, higher_r
     await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
     return
 
+disabled_servers = {}
 def get_disabled_status(guild_id: int) -> float | None:
+    global disabled_servers
     expire_at = disabled_servers.get(guild_id)
     if not expire_at:
         return None
@@ -81,7 +79,7 @@ def get_disabled_status(guild_id: int) -> float | None:
         return None
     return remaining
 
-async def format_seconds(seconds:int)-> str:
+def format_seconds(seconds:int)-> str:
      days, remainder = divmod(seconds, 60*60*24)
      hours, remainder = divmod(remainder, 60*60)
      minutes = remainder // 60
@@ -98,11 +96,12 @@ async def format_seconds(seconds:int)-> str:
 
 @bot.event
 async def on_ready():
+    director_guild = bot.get_guild(director_guild_id)
     if database_error is not None:
-        director_guild = bot.get_guild(director_guild_id)
         await director_guild.system_channel.send(f"The database failed with error: {database_error}")
         print(f"The database failed with error: {database_error}")
         exit(1)
+    await director_guild.system_channel.send(f"The bot successfully reloaded/updated")
     print(f"We are ready to go in, {bot.user.name}")
     await bot.tree.sync(guild=discord.Object(director_guild_id))
 
@@ -127,7 +126,7 @@ async def rulet_context(interaction: discord.Interaction, persona: discord.Membe
     await tirar_rulet(interaction, persona)
 
 
-disabled_servers = {}
+
 @bot.tree.command(name="disable",description="Deshabilita el bot durante los minutos especificados")
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
