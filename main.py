@@ -29,8 +29,7 @@ director_guild_id:int = int(os.getenv('DIRECTOR_GUILD'))
 async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
     if interaction.user.id == user.id or user.bot:
         await interaction.response.send_message(f"{interaction.user.display_name} creo que te amamantaron con RedBull")
-        minutes = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
-        await interaction.user.timeout(timedelta(minutes=minutes*5), reason="Es minguito el pobre")
+        await timeout(interaction=interaction, user=user, multiplier=6)
         return
 
     disabled_time = get_disabled_status(interaction.guild_id)
@@ -39,26 +38,27 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
         return
 
     affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins")
-    higher_role: bool = user.top_role >= interaction.guild.me.top_role
+    higher_role: bool = user.top_role > interaction.guild.self_role
 
     if (user.resolved_permissions.administrator or higher_role) and not affect_admins:
         await interaction.response.send_message(f"{user.display_name} es un administrador y no le puedes retar", ephemeral=True)
         return
 
     if bool(randint(0, 1)):
-        await timeout(interaction=interaction, user=user, higher_role=higher_role)
+        await timeout(interaction=interaction, user=user)
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
         return
 
-    await timeout(interaction=interaction, user=interaction.user, higher_role=higher_role)
+    await timeout(interaction=interaction, user=interaction.user)
     await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido")
     return
 
 
-async def timeout(interaction: discord.Interaction,user:discord.Member, higher_role:bool):
+async def timeout(interaction: discord.Interaction,user:discord.Member, multiplier:int = 1):
+    timeout_impossible:bool = user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator
     minutes: int = await database.get_from_database(guild_id=interaction.guild_id,field="timeout_minutes")
 
-    if user.resolved_permissions.administrator or higher_role:
+    if timeout_impossible:
         await user.move_to(channel=None, reason="Ha perdido")
         return
 
@@ -66,7 +66,7 @@ async def timeout(interaction: discord.Interaction,user:discord.Member, higher_r
         await user.move_to(channel=None, reason="Ha perdido")
         return
 
-    await user.timeout(timedelta(minutes=minutes), reason="Ha perdido")
+    await user.timeout(timedelta(minutes=minutes*multiplier), reason="Ha perdido")
     return
 
 disabled_servers = {}
