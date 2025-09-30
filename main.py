@@ -7,6 +7,7 @@ from random import randint
 from datetime import timedelta
 import os
 from time import time
+from dotenv import load_dotenv
 
 database_error = None
 try:
@@ -14,6 +15,7 @@ try:
 except Exception as e:
     database_error = e
 
+load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')

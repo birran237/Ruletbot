@@ -1,8 +1,10 @@
 from google.cloud import firestore
 from google.oauth2 import service_account
+from dotenv import load_dotenv
 import os
 import json
 
+load_dotenv()
 local_db = {}
 defaults = {"timeout_minutes":5,"annoy_admins":True}
 

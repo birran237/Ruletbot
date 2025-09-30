@@ -1,2 +1,3 @@
 discord.py
 google-cloud-firestore
+python-dotenv
