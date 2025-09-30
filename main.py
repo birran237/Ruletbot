@@ -49,9 +49,10 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member):
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha ganado")
         return
 
-    if user.voice.channel is not None and interaction.user.voice.channel is None:
+    if user.voice is not None and interaction.user.voice is None:
         await timeout(interaction=interaction, user=interaction.user, multiplier=3)
         await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido con penalización extra")
+        return
     await timeout(interaction=interaction, user=interaction.user)
     await interaction.response.send_message(f"{interaction.user.display_name} ha retado a un duelo a {user.mention} y ha perdido")
     return
