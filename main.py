@@ -44,16 +44,16 @@ async def tirar_rulet(interaction: discord.Interaction, user:discord.Member) -> 
     if bool(randint(0, 1)):
         await timeout(interaction=interaction, user=user)
         message: str = await database.get_from_database(guild_id=interaction.guild_id,field="win_message")
-        return message.replace("{k}",interaction.user.display_name).replace("u",user.mention), False
+        return message.replace("{k}",interaction.user.display_name).replace("{u}",user.mention), False
 
     if user.voice is not None and interaction.user.voice is None:
         await timeout(interaction=interaction, user=interaction.user, multiplier=5)
         message: str = await database.get_from_database(guild_id=interaction.guild_id, field="lose_penalty_message")
-        return message.replace("{k}",interaction.user.display_name).replace("u",user.mention), False
+        return message.replace("{k}",interaction.user.display_name).replace("{u}",user.mention), False
 
     await timeout(interaction=interaction, user=interaction.user)
     message: str = await database.get_from_database(guild_id=interaction.guild_id, field="lose_message")
-    return message.replace("{k}", interaction.user.display_name).replace("u", user.mention), False
+    return message.replace("{k}", interaction.user.display_name).replace("{u}", user.mention), False
 
 
 async def timeout(interaction: discord.Interaction,user:discord.Member, multiplier:int = 1):
@@ -183,19 +183,19 @@ class SetGroup(app_commands.Group):
 
 
 class CustomizeGroup(app_commands.Group):
-    @app_commands.command(name="win",description="Cambia el mensage de victoria de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
+    @app_commands.command(name="win",description="Cambia el mensaje de victoria de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def win(self, interaction: discord.Interaction, message: str):
         await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="win_message", data=message)
 
-    @app_commands.command(name="lose",description="Cambia el mensage de derrota de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
+    @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def lose(self, interaction: discord.Interaction, message: str):
         await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_message", data=message)
 
-    @app_commands.command(name="lose_with_penalty",description="Cambia el mensage de derrota con penalización de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
+    @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def lose_penalty(self, interaction: discord.Interaction, message: str):
         await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
@@ -212,7 +212,7 @@ class CustomizeGroup(app_commands.Group):
         for field in delete_list:
             await database.del_guild_database_field(guild_id=guild, field=field)
 
-        await interaction.response.send_message(f"Se han reseteado los mensages del bot", ephemeral=True)
+        await interaction.response.send_message(f"Se han reseteado los mensajes del bot", ephemeral=True)
 
 if __name__ == "__main__":
     bot.run(token, log_handler=handler, log_level=logging.DEBUG)
