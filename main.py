@@ -186,19 +186,22 @@ class CustomizeGroup(app_commands.Group):
     @app_commands.command(name="win",description="Cambia el mensaje de victoria de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def win(self, interaction: discord.Interaction, message: str):
-        await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
+        formated_message = message.replace('{k}', '**Retador**').replace('{u}', '**Retado**')
+        await interaction.response.send_message(f"El nuevo mensaje será: {formated_message}", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="win_message", data=message)
 
     @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def lose(self, interaction: discord.Interaction, message: str):
-        await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
+        formated_message = message.replace('{k}', '**Retador**').replace('{u}', '**Retado**')
+        await interaction.response.send_message(f"El nuevo mensaje será: {formated_message}", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_message", data=message)
 
     @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización de la ruleta ({k} será el nombre del que reta y {u} del que recibe)")
     @app_commands.checks.has_permissions(administrator=True)
     async def lose_penalty(self, interaction: discord.Interaction, message: str):
-        await interaction.response.send_message(f"El nuevo mensaje será: \"{message.replace("{k}","**Retador**").replace("{u}","**Retado**")}\"", ephemeral=True)
+        formated_message = message.replace('{k}','**Retador**').replace('{u}','**Retado**')
+        await interaction.response.send_message(f"El nuevo mensaje será: {formated_message}", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_penalty_message", data=message)
 
     @app_commands.command(name="reset", description="Restableze las frases a los valores por defecto")
