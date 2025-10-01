@@ -6,7 +6,13 @@ import json
 
 load_dotenv()
 local_db = {}
-defaults = {"timeout_minutes":5,"annoy_admins":True}
+defaults = {
+    "timeout_minutes":5,
+    "annoy_admins":True,
+    "win_message":"{k} ha retado a un duelo a {u} y ha ganado",
+    "lose_message":"{k} ha retado a un duelo a {u} y ha perdido",
+    "lose_penalty_message":"{k} ha retado a un duelo a {u} y ha perdido con penalización extra"
+}
 
 
 firebase_credentials = os.getenv('FIREBASE_CREDENTIALS')
@@ -18,7 +24,7 @@ db = firestore.Client(credentials=credentials, project=firebase_project_id)
 print(f"Connected to firebase")
 
 
-async def save_to_database(guild_id: int, field: str, data: int | bool) -> None:
+async def save_to_database(guild_id: int, field: str, data: int | bool | str) -> None:
     if field not in defaults:
         raise Exception(f"Field {field} is not defined")
     if guild_id in local_db:
@@ -28,7 +34,7 @@ async def save_to_database(guild_id: int, field: str, data: int | bool) -> None:
     doc_ref.set(document_data={field: data},merge=True)
 
 
-async def get_from_database(guild_id: int, field: str) -> int | bool:
+async def get_from_database(guild_id: int, field: str) -> int | bool | str:
     if field not in defaults:
         raise Exception(f"Field {field} is not defined")
 
@@ -48,6 +54,19 @@ async def get_from_database(guild_id: int, field: str) -> int | bool:
         return doc.to_dict().get(field, defaults[field])
 
     return defaults[field]
+
+async def del_guild_database_field(guild_id: int, field: str) -> None:
+    if field not in defaults:
+        raise Exception(f"Field {field} is not defined")
+
+    try:
+        del local_db[guild_id][field]
+    except KeyError:
+        pass
+    doc_ref = db.collection("guild_config").document(str(guild_id))
+    doc = doc_ref.get()
+    if doc.exists:
+        doc_ref.update({field: firestore.DELETE_FIELD})
 
 async def del_guild_database(guild_id: int):
     try:
