@@ -6,7 +6,6 @@ from random import randint
 from datetime import timedelta
 from time import time
 
-
 def format_seconds(seconds:int)-> str:
      days, remainder = divmod(seconds, 60*60*24)
      hours, remainder = divmod(remainder, 60*60)
@@ -40,7 +39,12 @@ async def timeout(interaction: discord.Interaction, user:discord.Member, multipl
 class Rulet(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.disabled_servers = {}
+        self.ctx_menu = app_commands.ContextMenu(
+            name='Retar a la rulet',
+            callback=self.rulet_context,
+        )
+        self.bot.tree.add_command(self.ctx_menu)
+
 
     @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
     @app_commands.describe(persona="La persona a la que retaras a la rulet")
@@ -48,7 +52,6 @@ class Rulet(commands.Cog):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
         await interaction.response.send_message(message, ephemeral=ephemeral)
 
-    @app_commands.context_menu(name="Retar a la rulet")
     async def rulet_context(self, interaction: discord.Interaction, persona: discord.Member):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
         await interaction.response.send_message(message, ephemeral=ephemeral)
@@ -84,12 +87,13 @@ class Rulet(commands.Cog):
 
 
     def get_disabled_status(self, guild_id: int) -> float | None:
-        expire_at = self.disabled_servers.get(guild_id)
+        admin = self.bot.get_cog("Admin")
+        expire_at = admin.disabled_servers.get(guild_id)
         if not expire_at:
             return None
         remaining = expire_at - time()
         if remaining <= 0:
-            self.disabled_servers.pop(guild_id, None)
+            admin.disabled_servers.pop(guild_id, None)
             return None
         return remaining
 

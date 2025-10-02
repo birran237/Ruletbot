@@ -24,11 +24,10 @@ class Bot(commands.Bot):
         self.activity = discord.CustomActivity(name="Pegando escopetazos")
 
         try:
-            director_guild_id: int = int(os.getenv('DIRECTOR_GUILD'))
+            self.director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
         except TypeError:
-            self.director_guild = None
-        else:
-            self.director_guild = self.get_guild(director_guild_id)
+            print("puterus")
+            self.director_guild_id = None
 
 
     async def setup_hook(self):
@@ -38,26 +37,29 @@ class Bot(commands.Bot):
                 logging.info(f'Loaded cog {filename[:-3]}')
 
 
-        if self.director_guild is not None:
-            self.tree.copy_global_to(guild=self.director_guild)
-            await self.tree.sync(guild=self.director_guild)
+        if self.director_guild_id is not None:
+            director_guild = discord.Object(id=self.director_guild_id)
+            self.tree.copy_global_to(guild=director_guild)
+            await self.tree.sync(guild=director_guild)
 
-            logging.info(f'Guild {self.director_guild.name} has been synced')
+            logging.info(f'Guild {director_guild} has been synced')
         else:
+            print("puto")
             await self.tree.sync()
             logging.info(f'Synced global commands')
 
     async def on_ready(self):
         logging.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
 
-        if self.director_guild is None:
-            return
-
         global database_error
         if database_error is not None:
-            await self.director_guild.system_channel.send(f"The database failed with error: {database_error}")
             raise SystemExit(f"The database failed with error: {database_error}")
-        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated")
+
+        if self.director_guild_id is None:
+            return
+
+        director_guild = self.get_guild(self.director_guild_id)
+        await director_guild.system_channel.send(f"The bot successfully reloaded/updated")
 
     @staticmethod
     async def on_guild_remove(guild):
@@ -67,7 +69,7 @@ class Bot(commands.Bot):
 bot = Bot()
 
 
-@bot.tree.command(guild=bot.director_guild, description="Sincronizar el arbol de comandos global")
+@bot.tree.command(guild=discord.Object(id=bot.director_guild_id), description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.response.send_message(f"Succesfully synced {len(synced)} commands")
