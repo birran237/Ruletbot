@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import logging
 import os
 from dotenv import load_dotenv
@@ -39,7 +40,6 @@ class Bot(commands.Bot):
 
         if self.director_guild_id is not None:
             director_guild = discord.Object(id=self.director_guild_id)
-            self.tree.copy_global_to(guild=director_guild)
             await self.tree.sync(guild=director_guild)
 
             logging.info(f'Guild {director_guild} has been synced')
@@ -67,12 +67,19 @@ class Bot(commands.Bot):
 
 
 bot = Bot()
+async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administ",ephemeral=True)
+        return
 
+    await interaction.response.send_message(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
+
+bot.tree.on_error = error_handler
 
 @bot.tree.command(guild=discord.Object(id=bot.director_guild_id), description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
     synced = await bot.tree.sync()
-    await interaction.response.send_message(f"Succesfully synced {len(synced)} commands")
+    await interaction.response.send_message(f"Successfully synced {len(synced)} commands")
 
 
 if __name__ == "__main__":
