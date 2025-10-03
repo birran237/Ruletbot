@@ -36,18 +36,7 @@ class Bot(commands.Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
                 logging.info(f'Loaded cog {filename[:-3]}')
 
-        director_guild = None
-        if self.director_guild_id is not None:
-            director_guild = discord.Object(id=self.director_guild_id)
 
-        if director_guild is not None:
-            await self.tree.sync(guild=director_guild)
-
-            logging.info(f'Guild {director_guild} has been synced')
-        else:
-            print("puto")
-            await self.tree.sync()
-            logging.info(f'Synced global commands')
 
     async def on_ready(self):
         logging.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
@@ -62,8 +51,12 @@ class Bot(commands.Bot):
         director_guild = self.get_guild(self.director_guild_id)
         if director_guild is None:
             return
+        if director_guild is None:
+            await self.tree.sync()
+            logging.info(f'Synced global commands')
 
-        print(director_guild, self.director_guild_id)
+        await self.tree.sync(guild=director_guild)
+        logging.info(f'Guild {director_guild} has been synced')
         await director_guild.system_channel.send(f"The bot successfully reloaded/updated")
 
     @staticmethod
