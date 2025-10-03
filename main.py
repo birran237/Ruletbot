@@ -27,7 +27,6 @@ class Bot(commands.Bot):
         try:
             self.director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
         except TypeError:
-            print("puterus")
             self.director_guild_id = None
 
 
@@ -37,9 +36,11 @@ class Bot(commands.Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
                 logging.info(f'Loaded cog {filename[:-3]}')
 
-
+        director_guild = None
         if self.director_guild_id is not None:
             director_guild = discord.Object(id=self.director_guild_id)
+
+        if director_guild is not None:
             await self.tree.sync(guild=director_guild)
 
             logging.info(f'Guild {director_guild} has been synced')
@@ -59,6 +60,10 @@ class Bot(commands.Bot):
             return
 
         director_guild = self.get_guild(self.director_guild_id)
+        if director_guild is None:
+            return
+
+        print(director_guild, self.director_guild_id)
         await director_guild.system_channel.send(f"The bot successfully reloaded/updated")
 
     @staticmethod
