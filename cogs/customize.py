@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+import utility as util
 import database
 
 
@@ -9,7 +10,7 @@ class Customize(commands.GroupCog, name="customize"):
         self.bot = bot
 
     @app_commands.command(name="win",description="Cambia el mensaje de victoria de la ruleta")
-    @app_commands.checks.has_permissions(administrator=True)
+    @util.admin_checks()
     @app_commands.describe(message="Mensaje de victoria ({k} será el nombre del que reta y {u} del que recibe)")
     async def win(self, interaction: discord.Interaction, message: str):
         formated_message = message.replace('{k}', '**Retador**').replace('{u}', '**Retado**')
@@ -17,7 +18,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="win_message", data=message)
 
     @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta")
-    @app_commands.checks.has_permissions(administrator=True)
+    @util.admin_checks()
     @app_commands.describe(message="Mensaje de derrota ({k} será el nombre del que reta y {u} del que recibe)")
     async def lose(self, interaction: discord.Interaction, message: str):
         formated_message = message.replace('{k}', '**Retador**').replace('{u}', '**Retado**')
@@ -25,7 +26,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_message", data=message)
 
     @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización")
-    @app_commands.checks.has_permissions(administrator=True)
+    @util.admin_checks()
     @app_commands.describe(message="Mensaje de derrota con penalización ({k} será el nombre del que reta y {u} del que recibe)")
     async def lose_penalty(self, interaction: discord.Interaction, message: str):
         formated_message = message.replace('{k}','**Retador**').replace('{u}','**Retado**')
@@ -33,7 +34,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_penalty_message", data=message)
 
     @app_commands.command(name="reset", description="Restableze las frases a los valores por defecto")
-    @app_commands.checks.has_permissions(administrator=True)
+    @util.admin_checks()
     async def reset(self, interaction: discord.Interaction):
         guild: int = interaction.guild_id
         if database.local_db.get(guild) is None:

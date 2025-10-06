@@ -4,6 +4,7 @@ from discord import app_commands
 import logging
 import os
 from dotenv import load_dotenv
+import utility as util
 
 database_error = None
 try:
@@ -23,11 +24,7 @@ class Bot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
         self.help_command = None
         self.activity = discord.CustomActivity(name="Pegando escopetazos")
-
-        try:
-            self.director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
-        except TypeError:
-            self.director_guild_id = None
+        self.director_guild = None
 
 
     async def setup_hook(self):
@@ -45,36 +42,42 @@ class Bot(commands.Bot):
         if database_error is not None:
             raise SystemExit(f"The database failed with error: {database_error}")
 
-        if self.director_guild_id is None:
+        try:
+            director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
+        except TypeError:
+            director_guild_id = None
+
+        if director_guild_id is None:
             return
 
-        director_guild = self.get_guild(self.director_guild_id)
-        if director_guild is None:
-            return
-        if director_guild is None:
+        self.director_guild = self.get_guild(director_guild_id)
+        if self.director_guild is None:
             await self.tree.sync()
             logging.info(f'Synced global commands')
+            return
 
-        await self.tree.sync(guild=director_guild)
-        logging.info(f'Guild {director_guild} has been synced')
-        await director_guild.system_channel.send(f"The bot successfully reloaded/updated")
+        await self.tree.sync(guild=self.director_guild)
+        logging.info(f'Guild {self.director_guild.name} has been synced')
+        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated")
 
     @staticmethod
     async def on_guild_remove(guild):
         await database.del_guild_database(guild.id)
 
 
+
+
 bot = Bot()
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
-    if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administ",ephemeral=True)
+    if isinstance(error, util.AdminError):
+        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador",ephemeral=True)
         return
 
     await interaction.response.send_message(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
 
 bot.tree.on_error = error_handler
 
-@bot.tree.command(guild=discord.Object(id=bot.director_guild_id), description="Sincronizar el arbol de comandos global")
+@bot.tree.command(guild=bot.director_guild, description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.response.send_message(f"Successfully synced {len(synced)} commands")
