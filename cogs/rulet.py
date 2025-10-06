@@ -35,7 +35,7 @@ class Rulet(commands.Cog):
     async def tirar_rulet(self, interaction: discord.Interaction, user:discord.Member) -> (str, bool):
         if interaction.user.id == user.id or user.bot:
             await self.timeout(interaction=interaction, user=user, multiplier=5)
-            return f"{interaction.user.display_name} creo que te amamantaron con RedBull"
+            return f"{interaction.user.display_name} creo que te amamantaron con RedBull", False
 
         disabled_time = self.get_disabled_status(interaction.guild_id)
         if disabled_time is not None:
