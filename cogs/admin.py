@@ -4,7 +4,7 @@ from discord.ext import commands
 import database
 import asyncio
 from time import time
-import utility as util
+from utility import Utility
 from typing import Optional
 
 class Admin(commands.Cog):
@@ -15,16 +15,17 @@ class Admin(commands.Cog):
     admin_group = app_commands.Group(name="set", description="...")
 
     @admin_group.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
-    @util.admin_checks()
+    @Utility.admin_checks()
     @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
-    async def disable(self, interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080]):
+    async def disable(self, interaction: discord.Interaction, minutes: Optional[app_commands.Range[float, 0, 10080]]):
         if minutes == 0:
             self.disabled_servers.pop(interaction.guild_id, None)
             await interaction.response.send_message(f"El bot vuelve a funcionar correctamente", ephemeral=True)
             return
+
         expire_at = time() + (minutes * 60)
         self.disabled_servers[interaction.guild_id] = expire_at
-        await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{self.bot.util.format_seconds(int(minutes * 60))}**", ephemeral=True)
+        await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{self.bot.Utility.format_seconds(int(minutes * 60))}**", ephemeral=True)
 
         async def enable():
             await asyncio.sleep(minutes * 60)
@@ -34,9 +35,9 @@ class Admin(commands.Cog):
         asyncio.create_task(enable())
 
     @admin_group.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
-    @util.admin_checks()
+    @Utility.admin_checks()
     @app_commands.describe(minutes="Cantidad de minutos (1–60), dejar a 0 solo para expulsar de vc")
-    async def set_timeout(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 0, 60] = None):
+    async def set_timeout(self, interaction: discord.Interaction, minutes: Optional[app_commands.Range[int, 0, 60]] = None):
         if minutes is None:
             db_minutes = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
             await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {db_minutes} minutos", ephemeral=True)
@@ -46,7 +47,7 @@ class Admin(commands.Cog):
         await interaction.response.send_message(f"Tiempo de rulet configurado a {minutes} minutos", ephemeral=True)
 
     @admin_group.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores al del bot (deja en blanco para ver ajustes actuales)")
-    @util.admin_checks()
+    @Utility.admin_checks()
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: Optional[bool] = None):
         if affect_admins is None:
             db_affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins")

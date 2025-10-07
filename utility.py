@@ -1,32 +1,37 @@
 import discord
 from discord import app_commands
 
-class AdminError(app_commands.CheckFailure): pass
+class Utility:
+    director_guild = None
+    class AdminError(app_commands.CheckFailure): pass
 
-def format_seconds(seconds: int) -> str:
-    days, remainder = divmod(seconds, 60 * 60 * 24)
-    hours, remainder = divmod(remainder, 60 * 60)
-    minutes = remainder // 60
-    parts = []
-    if days:
-        parts.append(f"{days}d")
-        parts.append(f"{hours}h")
-    elif hours:
-        parts.append(f"{hours}h")
-    parts.append(f"{minutes}m")
+    @staticmethod
+    def format_seconds(seconds: int) -> str:
+        days, remainder = divmod(seconds, 60 * 60 * 24)
+        hours, remainder = divmod(remainder, 60 * 60)
+        minutes, remainder = divmod(remainder, 60)
+        seconds = remainder//1
+        parts = []
+        if days:
+            parts.append(f"{days}d")
+        if hours:
+            parts.append(f"{hours}h")
+        if minutes:
+            parts.append(f"{minutes}m")
+        parts.append(f"{seconds}s")
 
-    return ' '.join(parts)
+        return ' '.join(parts)
 
-def admin_checks():
-    def predicate(interaction: discord.Interaction):
-        if interaction.user.resolved_permissions.administrator:
-            return True
+    @staticmethod
+    def admin_checks():
+        def predicate(interaction: discord.Interaction):
+            if interaction.user.resolved_permissions.administrator:
+                return True
 
-        director_guild = interaction.client.director_guild
-        if director_guild is None:
-            raise AdminError
-        if interaction.user.id == director_guild.owner.id:
-            return True
-        raise AdminError
+            if Utility.director_guild is None:
+                raise Utility.AdminError
+            if interaction.user.id == Utility.director_guild.owner_id:
+                return True
+            raise Utility.AdminError
 
-    return app_commands.check(predicate)
+        return app_commands.check(predicate)

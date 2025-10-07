@@ -4,13 +4,16 @@ from discord import app_commands
 import logging
 import os
 from dotenv import load_dotenv
-import utility as util
+from utility import Utility
 
 database_error = None
 try:
     import database
 except Exception as e:
     database_error = e
+
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -56,9 +59,12 @@ class Bot(commands.Bot):
             logging.info(f'Synced global commands')
             return
 
+        self.tree.add_command(sync_tree, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         logging.info(f'Guild {self.director_guild.name} has been synced')
+        print(f'Guild {self.director_guild.name} has been synced')
         await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated")
+        Utility.director_guild = self.director_guild
 
     @staticmethod
     async def on_guild_remove(guild):
@@ -66,23 +72,24 @@ class Bot(commands.Bot):
 
 
 
-
-bot = Bot()
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
-    if isinstance(error, util.AdminError):
+    if isinstance(error, Utility.AdminError):
         await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador",ephemeral=True)
         return
 
+    if interaction.response.is_done():
+        await interaction.followup.send(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
+        return
     await interaction.response.send_message(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
 
+bot = Bot()
 bot.tree.on_error = error_handler
 
-@bot.tree.command(guild=bot.director_guild, description="Sincronizar el arbol de comandos global")
+@app_commands.command(description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.response.send_message(f"Successfully synced {len(synced)} commands")
 
 
 if __name__ == "__main__":
-    handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
     bot.run(token, log_handler=handler, log_level=logging.DEBUG)
