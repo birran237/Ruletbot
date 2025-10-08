@@ -23,8 +23,8 @@ root_logger.addHandler(file_handler)
 
 class Utility:
     director_guild = None
-    disabled_servers: Dict[int] = {}
-    disabled_users: Dict[int] = {}
+    disabled_servers= {}
+    disabled_users= {}
 
     class AdminError(app_commands.CheckFailure): pass
 

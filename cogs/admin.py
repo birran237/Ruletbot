@@ -36,15 +36,15 @@ class Admin(commands.Cog):
 
     @admin_group.command(name="timeout", description="Configura los minutos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
     @Utility.admin_checks()
-    @app_commands.describe(minutes="Cantidad de minutos (1–60), dejar a 0 solo para expulsar de vc")
+    @app_commands.describe(seconds="Cantidad de segundos (1–600), dejar a 0 solo para expulsar de vc")
     async def set_timeout(self, interaction: discord.Interaction, seconds: Optional[app_commands.Range[int, 0, 600]] = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
             await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {Utility.format_seconds(db["timeout_seconds"])}", ephemeral=True)
             return
 
-        await database.save_to_database(guild_id=interaction.guild_id, field="timeout_minutes", data=seconds)
-        await interaction.response.send_message(f"Tiempo de rulet configurado a {Utility.format_seconds(db["timeout_seconds"])}", ephemeral=True)
+        await database.save_to_database(guild_id=interaction.guild_id, field="timeout_seconds", data=seconds)
+        await interaction.response.send_message(f"Tiempo de rulet configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
 
     @admin_group.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores al del bot (deja en blanco para ver ajustes actuales)")
     @Utility.admin_checks()
