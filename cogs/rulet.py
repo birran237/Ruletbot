@@ -5,10 +5,7 @@ import database
 from random import randint
 from datetime import timedelta
 from time import time
-
-
-
-
+from utility import Utility
 
 class Rulet(commands.Cog):
     def __init__(self, bot):
@@ -24,67 +21,65 @@ class Rulet(commands.Cog):
     @app_commands.describe(persona="La persona a la que retaras a la rulet")
     async def rulet(self, interaction: discord.Interaction, persona: discord.Member):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
-        await interaction.response.send_message(message, ephemeral=ephemeral)
+        formated_message = message.replace("{k}",interaction.user.display_name).replace("{u}",persona.mention)
+        await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
     async def rulet_context(self, interaction: discord.Interaction, persona: discord.Member):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
-        await interaction.response.send_message(message, ephemeral=ephemeral)
+        formated_message = message.replace("{k}", interaction.user.display_name).replace("{u}", persona.mention)
+        await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
 
-
-    async def tirar_rulet(self, interaction: discord.Interaction, user:discord.Member) -> (str, bool):
-        if interaction.user.id == user.id or user.bot:
-            await self.timeout(interaction=interaction, user=user, multiplier=5)
+    async def tirar_rulet(self, interaction: discord.Interaction, person:discord.Member) -> (str, bool):
+        db = await database.get_from_database(guild_id=interaction.guild.id)
+        if interaction.user.id == person.id or person.bot:
+            await self.timeout(interaction=interaction, user=person, db=db, multiplier=5)
             return f"{interaction.user.display_name} creo que te amamantaron con RedBull", False
 
         disabled_time = self.get_disabled_status(interaction.guild_id)
         if disabled_time is not None:
-            return f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{self.bot.util.format_seconds(int(disabled_time))} {round(disabled_time%60)}s**.", True
+            return f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{Utility.format_seconds(disabled_time)}**.", True
 
-        affect_admins = await database.get_from_database(guild_id=interaction.guild_id,field="annoy_admins")
-        higher_role: bool = user.top_role > interaction.guild.self_role
+        higher_role: bool = person.top_role > interaction.guild.self_role
 
-        if (user.resolved_permissions.administrator or higher_role) and not affect_admins:
-            return f"{user.display_name} es un administrador y no le puedes retar", True
+        if (person.resolved_permissions.administrator or higher_role) and not db["annoy_admins"]:
+            return f"{person.display_name} es un administrador y no le puedes retar", True
+
 
         if bool(randint(0, 1)):
-            await self.timeout(interaction=interaction, user=user)
-            message: str = await database.get_from_database(guild_id=interaction.guild_id,field="win_message")
-            return message.replace("{k}",interaction.user.display_name).replace("{u}",user.mention), False
+            await self.timeout(interaction=interaction, user=person, db=db)
+            return db["win_message"], False
 
-        if user.voice is not None and interaction.user.voice is None:
-            await self.timeout(interaction=interaction, user=interaction.user, multiplier=3)
-            message: str = await database.get_from_database(guild_id=interaction.guild_id, field="lose_penalty_message")
-            return message.replace("{k}",interaction.user.display_name).replace("{u}",user.mention), False
+        if person.voice is not None and interaction.user.voice is None:
+            await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=3)
+            return db["lose_penalty_message"], False
 
-        await self.timeout(interaction=interaction, user=interaction.user)
-        message: str = await database.get_from_database(guild_id=interaction.guild_id, field="lose_message")
-        return message.replace("{k}", interaction.user.display_name).replace("{u}", user.mention), False
+        await self.timeout(interaction=interaction, user=interaction.user, db=db)
+        return db["lose_message"], False
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, multiplier: int = 1):
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db:dict, multiplier: int = 1):
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator
-        minutes: int = await database.get_from_database(guild_id=interaction.guild_id, field="timeout_minutes")
+        seconds: int = db["timeout_seconds"]
 
         if timeout_impossible:
             await user.move_to(channel=None, reason="Ha perdido")
             return
 
-        if minutes == 0:
+        if seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")
             return
 
-        await user.timeout(timedelta(minutes=minutes * multiplier), reason="Ha perdido")
+        await user.timeout(timedelta(seconds=seconds * multiplier), reason="Ha perdido")
         return
 
     def get_disabled_status(self, guild_id: int) -> float | None:
-        admin = self.bot.get_cog("Admin")
-        expire_at = admin.disabled_servers.get(guild_id)
+        expire_at = Utility.disabled_servers.get(guild_id)
         if not expire_at:
             return None
         remaining = expire_at - time()
         if remaining <= 0:
-            admin.disabled_servers.pop(guild_id, None)
+            Utility.disabled_servers.pop(guild_id, None)
             return None
         return remaining
 

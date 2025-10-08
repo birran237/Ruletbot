@@ -6,14 +6,14 @@ import os
 from dotenv import load_dotenv
 from utility import Utility
 
+log = logging.getLogger(__name__)
+
 database_error = None
 try:
     import database
 except Exception as e:
     database_error = e
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -34,12 +34,12 @@ class Bot(commands.Bot):
         for filename in os.listdir('./cogs'):
             if filename.endswith('.py'):
                 await self.load_extension(f'cogs.{filename[:-3]}')
-                logging.info(f'Loaded cog {filename[:-3]}')
+                log.info(f'Loaded cog {filename[:-3]}')
 
 
 
     async def on_ready(self):
-        logging.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
+        log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
 
         global database_error
         if database_error is not None:
@@ -56,20 +56,19 @@ class Bot(commands.Bot):
         self.director_guild = self.get_guild(director_guild_id)
         if self.director_guild is None:
             await self.tree.sync()
-            logging.info(f'Synced global commands')
+            log.info(f'Synced global commands')
             return
 
         self.tree.add_command(sync_tree, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
-        logging.info(f'Guild {self.director_guild.name} has been synced')
-        print(f'Guild {self.director_guild.name} has been synced')
+        log.info(f'Guild {self.director_guild.name} has been synced')
         await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated")
         Utility.director_guild = self.director_guild
 
     @staticmethod
     async def on_guild_remove(guild):
         await database.del_guild_database(guild.id)
-
+        log.debug(f'Guild {guild.name} has been deleted')
 
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
@@ -77,10 +76,7 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador",ephemeral=True)
         return
 
-    if interaction.response.is_done():
-        await interaction.followup.send(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
-        return
-    await interaction.response.send_message(f'Se ha encontrado un error en el comando "{interaction.command}": {error}',ephemeral=True)
+    log.error(f"There was an error with command {interaction.command}: {error}")
 
 bot = Bot()
 bot.tree.on_error = error_handler
@@ -92,4 +88,4 @@ async def sync_tree(interaction: discord.Interaction):
 
 
 if __name__ == "__main__":
-    bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+    bot.run(token)
