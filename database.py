@@ -11,11 +11,12 @@ log = logging.getLogger(__name__)
 load_dotenv()
 local_db = {}
 defaults = {
-    "timeout_seconds":180,
-    "annoy_admins":True,
-    "win_message":"{k} ha retado a un duelo a {u} y ha ganado",
-    "lose_message":"{k} ha retado a un duelo a {u} y ha perdido",
-    "lose_penalty_message":"{k} ha retado a un duelo a {u} y ha perdido con penalización extra"
+    "timeout_seconds": 180,
+    "annoy_admins": True,
+    "lose_cooldown": 60,
+    "win_message": "{k} ha retado a un duelo a {u} y ha ganado",
+    "lose_message": "{k} ha retado a un duelo a {u} y ha perdido",
+    "lose_penalty_message": "{k} ha retado a un duelo a {u} y ha perdido con penalización extra"
 }
 
 

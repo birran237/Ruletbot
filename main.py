@@ -73,7 +73,17 @@ class Bot(commands.Bot):
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
     if isinstance(error, Utility.AdminError):
-        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador",ephemeral=True)
+        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador", ephemeral=True)
+        return
+
+    if isinstance(error, Utility.GuildCooldown):
+        time = Utility.format_seconds(error.retry_after)
+        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{time}**", ephemeral=True)
+        return
+
+    if isinstance(error, Utility.UserCooldown):
+        time = Utility.format_seconds(error.retry_after)
+        await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta dentro de **{time}**", ephemeral=True)
         return
 
     log.error(f"There was an error with command {interaction.command}: {error}")

@@ -6,6 +6,7 @@ from random import randint
 from datetime import timedelta
 from time import time
 from utility import Utility
+from typing import Tuple
 
 class Rulet(commands.Cog):
     def __init__(self, bot):
@@ -19,11 +20,13 @@ class Rulet(commands.Cog):
 
     @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
     @app_commands.describe(persona="La persona a la que retaras a la rulet")
+    @Utility.cooldown_check()
     async def rulet(self, interaction: discord.Interaction, persona: discord.Member):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
         formated_message = message.replace("{k}",interaction.user.display_name).replace("{u}",persona.mention)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
+    @Utility.cooldown_check()
     async def rulet_context(self, interaction: discord.Interaction, persona: discord.Member):
         message, ephemeral = await self.tirar_rulet(interaction, persona)
         formated_message = message.replace("{k}", interaction.user.display_name).replace("{u}", persona.mention)
@@ -35,10 +38,6 @@ class Rulet(commands.Cog):
         if interaction.user.id == person.id or person.bot:
             await self.timeout(interaction=interaction, user=person, db=db, multiplier=5)
             return f"{interaction.user.display_name} creo que te amamantaron con RedBull", False
-
-        disabled_time = self.get_disabled_status(interaction.guild_id)
-        if disabled_time is not None:
-            return f"{interaction.user.mention} he sido deshabilitado por los administradores hasta dentro de **{Utility.format_seconds(disabled_time)}**.", True
 
         higher_role: bool = person.top_role > interaction.guild.self_role
 
@@ -52,9 +51,11 @@ class Rulet(commands.Cog):
 
         if person.voice is not None and interaction.user.voice is None:
             await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=3)
+            await self.set_user_cooldown(interaction=interaction, db=db, multiplier=5)
             return db["lose_penalty_message"], False
 
         await self.timeout(interaction=interaction, user=interaction.user, db=db)
+        await self.set_user_cooldown(interaction=interaction, db=db)
         return db["lose_message"], False
 
     @staticmethod
@@ -73,15 +74,22 @@ class Rulet(commands.Cog):
         await user.timeout(timedelta(seconds=seconds * multiplier), reason="Ha perdido")
         return
 
-    def get_disabled_status(self, guild_id: int) -> float | None:
-        expire_at = Utility.disabled_servers.get(guild_id)
-        if not expire_at:
-            return None
-        remaining = expire_at - time()
-        if remaining <= 0:
-            Utility.disabled_servers.pop(guild_id, None)
-            return None
-        return remaining
+    @staticmethod
+    async def set_user_cooldown(interaction: discord.Interaction, db: dict, multiplier: int = 1) -> None:
+        total_time: int = (db["timeout_seconds"] + db["lose_cooldown"]) * multiplier
+        available_on: int = int(total_time + time())
+        key: Tuple[int, int] = (interaction.guild_id, interaction.user.id)
+        current_time = Utility.disabled_users.get(key, None)
+
+        if current_time is None:
+            Utility.disabled_users[key] = available_on
+            return
+
+        if current_time > available_on:
+            return
+
+        Utility.disabled_users[key] = available_on
+        return
 
 async def setup(bot: commands.bot):
     await bot.add_cog(Rulet(bot))
