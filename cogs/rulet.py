@@ -46,7 +46,8 @@ class Rulet(commands.Cog):
 
 
         if bool(randint(0, 1)):
-            await self.timeout(interaction=interaction, user=person, db=db)
+            multiplayer = 0.5 if db["half_lose_timeout"] else 1
+            await self.timeout(interaction=interaction, user=person, db=db, multiplier=multiplayer)
             return db["win_message"], False
 
         if person.voice is not None and interaction.user.voice is None:
@@ -76,20 +77,15 @@ class Rulet(commands.Cog):
 
     @staticmethod
     async def set_user_cooldown(interaction: discord.Interaction, db: dict, multiplier: int = 1) -> None:
+        key: Tuple[int, int] = (interaction.guild_id, interaction.user.id)
         total_time: int = (db["timeout_seconds"] + db["lose_cooldown"]) * multiplier
         available_on: int = int(total_time + time())
-        key: Tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        current_time = Utility.disabled_users.get(key, None)
 
-        if current_time is None:
-            Utility.disabled_users[key] = available_on
-            return
-
-        if current_time > available_on:
+        if Utility.get_admin_permissions(interaction.user):
             return
 
         Utility.disabled_users[key] = available_on
-        return
+
 
 async def setup(bot: commands.bot):
     await bot.add_cog(Rulet(bot))

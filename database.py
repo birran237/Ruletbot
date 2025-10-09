@@ -12,8 +12,9 @@ load_dotenv()
 local_db = {}
 defaults = {
     "timeout_seconds": 180,
+    "lose_cooldown": 0,
     "annoy_admins": True,
-    "lose_cooldown": 60,
+    "half_lose_timeout": False,
     "win_message": "{k} ha retado a un duelo a {u} y ha ganado",
     "lose_message": "{k} ha retado a un duelo a {u} y ha perdido",
     "lose_penalty_message": "{k} ha retado a un duelo a {u} y ha perdido con penalización extra"

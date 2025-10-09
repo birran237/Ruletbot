@@ -60,9 +60,9 @@ class Utility:
 
         if cls.director_guild is None:
             return False
-        if member.id == cls.director_guild.owner_id:
-            return True
-        return False
+
+        return member.id == cls.director_guild.owner_id
+
     @classmethod
     def admin_check(cls):
         def predicate(interaction: discord.Interaction) -> bool:

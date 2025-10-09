@@ -39,6 +39,19 @@ class Admin(commands.Cog):
         await database.save_to_database(guild_id=interaction.guild_id, field="timeout_seconds", data=seconds)
         await interaction.response.send_message(f"Tiempo de rulet configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
 
+    @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder (deja en blanco para ver ajustes actuales)")
+    @app_commands.describe(seconds="Cantidad de segundos (0–900), solo afectará al que reta cuando pierda, no al retado")
+    @Utility.admin_check()
+    async def set_lose_cooldown(self, interaction: discord.Interaction, seconds: Optional[app_commands.Range[int, 0, 900]] = None):
+        db = await database.get_from_database(guild_id=interaction.guild_id)
+        if seconds is None:
+            await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db['lose_cooldown'])}", ephemeral=True)
+            return
+
+        await database.save_to_database(guild_id=interaction.guild_id, field="lose_cooldown", data=seconds)
+        await interaction.response.send_message(f"Tiempo de cooldown configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
+
+
     @admin_group.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores al del bot (deja en blanco para ver ajustes actuales)")
     @Utility.admin_check()
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: Optional[bool] = None):
@@ -52,17 +65,20 @@ class Admin(commands.Cog):
         message_mod = "también" if affect_admins else "ya no"
         await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores al mio o a administradores",ephemeral=True)
 
-    @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder (deja en blanco para ver ajustes actuales)")
-    @app_commands.describe(seconds="Cantidad de segundos (0–900), solo afectará al que reta cuando pierda, no al retado")
+
+    @admin_group.command(name="half_lose_timeout", description="Reducir a la mitad el tiempo de las derrotas (solo afecta a los retados)")
     @Utility.admin_check()
-    async def set_lose_cooldown(self, interaction: discord.Interaction, seconds: Optional[app_commands.Range[int, 0, 900]] = None):
-        db = await database.get_from_database(guild_id=interaction.guild_id)
-        if seconds is None:
-            await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db['lose_cooldown'])}", ephemeral=True)
+    async def set_half_lose_timeout(self, interaction: discord.Interaction, enable: Optional[bool] = None):
+        if enable is None:
+            db = await database.get_from_database(guild_id=interaction.guild_id)
+            message_mod = "la mitad de tiempo" if db['half_lose_timeout'] else "el timepo entero"
+            await interaction.response.send_message(f"Los retados recibiran {message_mod} cuando pierdan", ephemeral=True)
             return
 
-        await database.save_to_database(guild_id=interaction.guild_id, field="lose_cooldown", data=seconds)
-        await interaction.response.send_message(f"Tiempo de cooldown configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
+        await database.save_to_database(guild_id=interaction.guild_id, field="half_lose_timeout", data=enable)
+        message_mod = "la mitad de tiempo" if enable else "el timepo entero"
+        await interaction.response.send_message(f"A partir de ahora los retados recibiran {message_mod} cuando pierdan", ephemeral=True)
+
 
 async def setup(bot: commands.bot):
     await bot.add_cog(Admin(bot))
