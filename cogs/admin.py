@@ -40,7 +40,7 @@ class Admin(commands.Cog):
     async def set_timeout(self, interaction: discord.Interaction, seconds: Optional[app_commands.Range[int, 0, 600]] = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
-            await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {Utility.format_seconds(db["timeout_seconds"])}", ephemeral=True)
+            await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {Utility.format_seconds(db['timeout_seconds'])}", ephemeral=True)
             return
 
         await database.save_to_database(guild_id=interaction.guild_id, field="timeout_seconds", data=seconds)
@@ -51,7 +51,7 @@ class Admin(commands.Cog):
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: Optional[bool] = None):
         if affect_admins is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
-            message_mod = "también" if db["annoy_admins"] else "no"
+            message_mod = "también" if db['annoy_admins'] else "no"
             await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores al mio y a los administradores", ephemeral=True)
             return
 
