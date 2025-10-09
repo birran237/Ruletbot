@@ -21,7 +21,7 @@ root_logger.handlers.clear()
 root_logger.addHandler(console_handler)
 root_logger.addHandler(file_handler)
 
-
+log = logging.getLogger(__name__)
 class Utility:
     director_guild = None
     disabled_servers: Dict[int, int] = {}
@@ -91,7 +91,7 @@ class Utility:
                 return None
 
             expire_at = cls.disabled_servers.get(member.guild.id)
-            if not expire_at:
+            if expire_at is None:
                 return None
             remaining = expire_at - time()
             if remaining <= 0:
@@ -101,13 +101,15 @@ class Utility:
 
         def get_user_status(member: discord.Member) -> Optional[float]:
             key: Tuple[int, int] = (member.guild.id, member.id)
+            expire_at = cls.disabled_users.get(key)
+            if expire_at is None:
+                return None
+
             if cls.get_admin_permissions(member):
                 cls.disabled_users.pop(key)
                 return None
 
-            expire_at = cls.disabled_users.get(key)
-            if not expire_at:
-                return None
+
             remaining = expire_at - time()
             if remaining <= 0:
                 cls.disabled_users.pop(key)

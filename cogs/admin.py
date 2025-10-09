@@ -13,7 +13,7 @@ class Admin(commands.Cog):
 
     admin_group = app_commands.Group(name="set", description="...")
 
-    @admin_group.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
+    @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
     @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
     @Utility.admin_check()
     async def disable(self, interaction: discord.Interaction, minutes: Optional[app_commands.Range[float, 0, 10080]]):
