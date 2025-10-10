@@ -41,7 +41,7 @@ class Rulet(commands.Cog):
 
         higher_role: bool = person.top_role > interaction.guild.self_role
 
-        if (person.resolved_permissions.administrator or higher_role) and not db["annoy_admins"]:
+        if (person.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
             return f"{person.display_name} es un administrador y no le puedes retar", True
 
 
@@ -61,7 +61,7 @@ class Rulet(commands.Cog):
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db:dict, multiplier: int = 1):
-        timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator
+        timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
         seconds: int = db["timeout_seconds"]
 
         if timeout_impossible:
@@ -81,7 +81,7 @@ class Rulet(commands.Cog):
         total_time: int = (db["timeout_seconds"] + db["lose_cooldown"]) * multiplier
         available_on: int = int(total_time + time())
 
-        if Utility.get_admin_permissions(interaction.user):
+        if interaction.user.guild_permissions.administrator:
             return
 
         Utility.disabled_users[key] = available_on

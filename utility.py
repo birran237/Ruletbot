@@ -53,21 +53,16 @@ class Utility:
 
         return ' '.join(parts)
 
-    @classmethod
-    def get_admin_permissions(cls, member: discord.Member) -> bool:
-        if member.resolved_permissions.administrator:
-            return True
-
-        if cls.director_guild is None:
-            return False
-
-        return member.id == cls.director_guild.owner_id
 
     @classmethod
     def admin_check(cls):
-        def predicate(interaction: discord.Interaction) -> bool:
-            admin = cls.get_admin_permissions(interaction.user)
-            if admin:
+        def predicate(interaction: discord.Interaction):
+            if interaction.user.guild_permissions.administrator:
+                return True
+
+            if cls.director_guild is None:
+                raise Utility.AdminError
+            if interaction.user.id == cls.director_guild.owner_id:
                 return True
             raise cls.AdminError
 
@@ -87,7 +82,7 @@ class Utility:
 
 
         def get_guild_status(member: discord.Member) -> Optional[float]:
-            if cls.get_admin_permissions(member):
+            if member.guild_permissions.administrator:
                 return None
 
             expire_at = cls.disabled_servers.get(member.guild.id)
@@ -105,7 +100,7 @@ class Utility:
             if expire_at is None:
                 return None
 
-            if cls.get_admin_permissions(member):
+            if member.guild_permissions.administrator:
                 cls.disabled_users.pop(key)
                 return None
 
