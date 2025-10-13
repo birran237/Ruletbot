@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import database
 from random import randint
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time
 from utility import Utility
 from typing import Tuple
@@ -72,7 +72,10 @@ class Rulet(commands.Cog):
             await user.move_to(channel=None, reason="Ha perdido")
             return
 
-        await user.timeout(timedelta(seconds=seconds * multiplier), reason="Ha perdido")
+        timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
+        if user.timed_out_until is not None:
+            timeout_time = timeout_time + user.timed_out_until
+        await user.timeout(timeout_time, reason="Ha perdido")
         return
 
     @staticmethod
