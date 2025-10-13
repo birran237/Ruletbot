@@ -76,7 +76,7 @@ async def del_guild_database_field(guild_id: int, field: str) -> None:
         log.debug(f"Deleting {field} from {guild_id} from firebase database")
         doc_ref.update({field: firestore.DELETE_FIELD})
 
-async def del_guild_database(guild_id: int):
+async def del_guild_database(guild_id: int) -> None:
     try:
         del local_db[guild_id]
     except KeyError:

@@ -33,15 +33,15 @@ class Admin(commands.Cog):
         embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
         db = await database.get_from_database(interaction.guild.id)
 
-        message: str = f"""**Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
-        **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
-        **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
-        **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}"""
+        message: str = f"""**- Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
+        **- Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
+        **- Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
+        **- Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}"""
         embed.add_field(name="/set", value=message, inline=False)
 
-        message = f"""**Mensaje de victoria:** {db['win_message']}
-        **Mensaje de derrota:** {db['lose_message']}
-        **Mensaje de derrota con penalización:** {db['lose_penalty_message']}"""
+        message = f"""**- Mensaje de victoria:** {db['win_message']}
+        **- Mensaje de derrota:** {db['lose_message']}
+        **- Mensaje de derrota con penalización:** {db['lose_penalty_message']}"""
         message = message.replace('{k}', '*Retador*').replace('{u}', '*Retado*')
         embed.add_field(name="/customize", value=message, inline=False)
 

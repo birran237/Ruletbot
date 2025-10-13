@@ -7,7 +7,9 @@ from datetime import timedelta, datetime
 from time import time
 from utility import Utility
 from typing import Tuple
+import logging
 
+log = logging.getLogger(__name__)
 class Rulet(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -60,22 +62,25 @@ class Rulet(commands.Cog):
         return db["lose_message"], False
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, db:dict, multiplier: int = 1):
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db:dict, multiplier: int = 1) -> None:
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
         seconds: int = db["timeout_seconds"]
 
         if timeout_impossible:
             await user.move_to(channel=None, reason="Ha perdido")
+            log.debug(f"{user.display_name}({user.id}) has been kicked of vc in guild {interaction.guild}({interaction.guild.id})")
             return
 
         if seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")
+            log.debug(f"{user.display_name}({user.id}) has been kicked of vc in guild {interaction.guild}({interaction.guild.id})")
             return
 
         timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
         if user.timed_out_until is not None:
             timeout_time = timeout_time + user.timed_out_until
         await user.timeout(timeout_time, reason="Ha perdido")
+        log.debug(f"{user.display_name}({user.id}) has been timeouted for {seconds * multiplier} seconds in guild {interaction.guild}({interaction.guild.id})")
         return
 
     @staticmethod
