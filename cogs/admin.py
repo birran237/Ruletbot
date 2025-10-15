@@ -34,9 +34,9 @@ class Admin(commands.Cog):
         db = await database.get_from_database(interaction.guild.id)
 
         message: str = f"""- **Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
-        - **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
-        - **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
-        - **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}"""
+- **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
+- **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
+- **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}"""
         embed.add_field(name="/set", value=message, inline=False)
 
         message = f"""- **Mensaje de victoria:** {db['win_message']}
