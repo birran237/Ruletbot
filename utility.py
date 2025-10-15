@@ -124,3 +124,20 @@ class Utility:
             mapper["u"] = target.mention
 
         return Template(message).safe_substitute(mapper)
+
+    @staticmethod
+    def get_command(interaction: discord.Interaction) -> str:
+        data = interaction.data or {}
+        name = data.get("name", "")
+        options = data.get("options", [])
+
+        def recurse(r_name, r_options):
+            # For subcommands or groups
+            if r_options and r_options[0].get("type") in (1, 2):  # 1=subcommand, 2=subcommand_group
+                sub = r_options[0]
+                return recurse(f"{r_name} {sub['name']}", sub.get("options", []))
+            else:
+                args = [f"{opt['name']}={opt['value']}" for opt in (r_options or [])]
+                return f"/{r_name} {' '.join(args)}".strip()
+
+        return recurse(name, options)
