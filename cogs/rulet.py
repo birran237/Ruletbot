@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import database
 from random import randint
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, UTC
 from time import time
 from utility import Utility
 from typing import Tuple
@@ -77,7 +77,7 @@ class Rulet(commands.Cog):
             return
 
         timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
-        if user.timed_out_until is not None and user.timed_out_until > datetime.now():
+        if user.timed_out_until is not None and user.timed_out_until > datetime.now(UTC):
             timeout_time = timeout_time + user.timed_out_until
         await user.timeout(timeout_time, reason="Ha perdido")
         log.debug(f"{user.display_name}({user.id}) has been timeouted for {seconds * multiplier} seconds in guild {interaction.guild}({interaction.guild.id})")
