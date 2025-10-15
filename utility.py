@@ -4,6 +4,7 @@ from logging.handlers import RotatingFileHandler
 import logging
 from typing import Dict, Optional, Tuple
 from time import time
+from string import Template
 
 formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -112,3 +113,14 @@ class Utility:
             return remaining
 
         return app_commands.check(predicate)
+
+    @staticmethod
+    def format_message(message: str, author: Optional[discord.User | discord.Member] = None, target: Optional[discord.User | discord.Member] = None) -> str:
+        mapper = {"k": "*autor*", "u": "*objetivo*"}
+
+        if author is not None:
+            mapper["k"] = author.display_name
+        if target is not None:
+            mapper["u"] = target.mention
+
+        return Template(message).safe_substitute(mapper)

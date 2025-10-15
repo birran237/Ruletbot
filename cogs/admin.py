@@ -42,7 +42,7 @@ class Admin(commands.Cog):
         message = f"""- **Mensaje de victoria:** {db['win_message']}
         - **Mensaje de derrota:** {db['lose_message']}
         - **Mensaje de derrota con penalización:** {db['lose_penalty_message']}"""
-        message = message.replace('{k}', '*Retador*').replace('{u}', '*Retado*')
+        message = Utility.format_message(message=message)
         embed.add_field(name="/customize", value=message, inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)

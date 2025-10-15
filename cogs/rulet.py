@@ -21,38 +21,38 @@ class Rulet(commands.Cog):
 
 
     @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
-    @app_commands.describe(persona="La persona a la que retaras a la rulet")
+    @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
     @Utility.cooldown_check()
-    async def rulet(self, interaction: discord.Interaction, persona: discord.Member):
-        message, ephemeral = await self.tirar_rulet(interaction, persona)
-        formated_message = message.replace("{k}",interaction.user.display_name).replace("{u}",persona.mention)
+    async def rulet(self, interaction: discord.Interaction, objetivo: discord.Member):
+        message, ephemeral = await self.tirar_rulet(interaction, objetivo)
+        formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
     @Utility.cooldown_check()
-    async def rulet_context(self, interaction: discord.Interaction, persona: discord.Member):
-        message, ephemeral = await self.tirar_rulet(interaction, persona)
-        formated_message = message.replace("{k}", interaction.user.display_name).replace("{u}", persona.mention)
+    async def rulet_context(self, interaction: discord.Interaction, objetivo: discord.Member):
+        message, ephemeral = await self.tirar_rulet(interaction, objetivo)
+        formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
 
-    async def tirar_rulet(self, interaction: discord.Interaction, person:discord.Member) -> (str, bool):
+    async def tirar_rulet(self, interaction: discord.Interaction, target:discord.Member) -> (str, bool):
         db = await database.get_from_database(guild_id=interaction.guild.id)
-        if interaction.user.id == person.id or person.bot:
-            await self.timeout(interaction=interaction, user=person, db=db, multiplier=5)
+        if interaction.user.id == target.id or target.bot:
+            await self.timeout(interaction=interaction, user=target, db=db, multiplier=5)
             return f"{interaction.user.display_name} creo que te amamantaron con RedBull", False
 
-        higher_role: bool = person.top_role > interaction.guild.self_role
+        higher_role: bool = target.top_role > interaction.guild.self_role
 
-        if (person.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
-            return f"{person.display_name} es un administrador y no le puedes retar", True
+        if (target.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
+            return f"{target.display_name} es un administrador y no le puedes retar", True
 
 
         if bool(randint(0, 1)):
             multiplayer = 0.5 if db["half_lose_timeout"] else 1
-            await self.timeout(interaction=interaction, user=person, db=db, multiplier=multiplayer)
+            await self.timeout(interaction=interaction, user=target, db=db, multiplier=multiplayer)
             return db["win_message"], False
 
-        if person.voice is not None and interaction.user.voice is None:
+        if target.voice is not None and interaction.user.voice is None:
             await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=3)
             await self.set_user_cooldown(interaction=interaction, db=db, multiplier=5)
             return db["lose_penalty_message"], False
