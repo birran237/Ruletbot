@@ -67,7 +67,7 @@ async def del_guild_database_field(guild_id: int, field: str) -> None:
         raise Exception(f"Field {field} is not defined")
 
     try:
-        del local_db[guild_id][field]
+        local_db[guild_id][field] = defaults[field]
     except KeyError:
         pass
     doc_ref = db.collection("guild_config").document(str(guild_id))
