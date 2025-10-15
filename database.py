@@ -49,17 +49,17 @@ async def get_from_database(guild_id: int) -> dict:
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
 
+    log.debug(f"Getting {guild_id} from firebase database/defaults")
+    return_dict = defaults
+    if doc.exists:
+        return_dict = defaults|doc.to_dict() #return the db dict and fill the rest with defaults
 
     if len(local_db) < 100:
-        local_db[guild_id] = defaults|doc.to_dict() #save db contents to local_db, and fill with defaults
+        local_db[guild_id] = return_dict
     else:
         local_db.clear()
 
-    log.debug(f"Getting {guild_id} from firebase database/defaults")
-    if doc.exists:
-        return defaults|doc.to_dict()
-
-    return defaults
+    return return_dict
 
 
 async def del_guild_database_field(guild_id: int, field: str) -> None:
@@ -75,6 +75,7 @@ async def del_guild_database_field(guild_id: int, field: str) -> None:
     if doc.exists:
         log.debug(f"Deleting {field} from {guild_id} from firebase database")
         doc_ref.update({field: firestore.DELETE_FIELD})
+
 
 async def del_guild_database(guild_id: int) -> None:
     try:

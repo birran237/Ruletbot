@@ -103,6 +103,7 @@ class Admin(commands.Cog):
     @Utility.admin_check()
     async def set_default(self, interaction: discord.Interaction):
         await database.del_guild_database(guild_id=interaction.guild_id)
+        await interaction.response.send_message(f"Se han resetado los ajustes del bot", ephemeral=True)
 
 
 async def setup(bot: commands.bot):

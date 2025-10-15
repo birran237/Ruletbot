@@ -86,9 +86,10 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta dentro de **{time}**", ephemeral=True)
         return
 
-    log.error(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {interaction.command.name}: {error}")
+    command = f"/{interaction.command.qualified_name} " + " ".join(f"{k}={v}" for k, v in vars(interaction.namespace).items())
+    log.error(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {command}: {error}")
     if bot.director_guild is not None:
-        await bot.director_guild.system_channel.send(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {interaction.command.name}: {error}")
+        await bot.director_guild.system_channel.send(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {command}: {error}")
 
 bot = Bot()
 bot.tree.on_error = error_handler
