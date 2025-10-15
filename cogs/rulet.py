@@ -77,7 +77,7 @@ class Rulet(commands.Cog):
             return
 
         timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
-        if user.timed_out_until is not None:
+        if user.timed_out_until is not None and user.timed_out_until > datetime.now():
             timeout_time = timeout_time + user.timed_out_until
         await user.timeout(timeout_time, reason="Ha perdido")
         log.debug(f"{user.display_name}({user.id}) has been timeouted for {seconds * multiplier} seconds in guild {interaction.guild}({interaction.guild.id})")
