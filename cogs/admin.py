@@ -40,8 +40,8 @@ class Admin(commands.Cog):
         embed.add_field(name="/set", value=message, inline=False)
 
         message = f"""- **Mensaje de victoria:** {db['win_message']}
-        - **Mensaje de derrota:** {db['lose_message']}
-        - **Mensaje de derrota con penalización:** {db['lose_penalty_message']}"""
+- **Mensaje de derrota:** {db['lose_message']}
+- **Mensaje de derrota con penalización:** {db['lose_penalty_message']}"""
         message = Utility.format_message(message=message)
         embed.add_field(name="/customize", value=message, inline=False)
 
@@ -98,6 +98,11 @@ class Admin(commands.Cog):
         await database.save_to_database(guild_id=interaction.guild_id, field="half_lose_timeout", data=enable)
         message_mod = "la mitad de tiempo" if enable else "el timepo entero"
         await interaction.response.send_message(f"A partir de ahora los retados recibiran {message_mod} cuando pierdan", ephemeral=True)
+
+    @admin_group.command(name="default", description="Devuelve los ajustes del bot a valores por defecto")
+    @Utility.admin_check()
+    async def set_default(self, interaction: discord.Interaction):
+        await database.del_guild_database(guild_id=interaction.guild_id)
 
 
 async def setup(bot: commands.bot):
