@@ -57,6 +57,21 @@ class Customize(commands.GroupCog, name="customize"):
         await interaction.response.send_message(f"El nuevo mensaje será: {formated_message}", ephemeral=True)
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_penalty_message", data=message)
 
+    @app_commands.command(name="wrong_target",description="Cambia el mensaje de cuando un usuario haga rulet a si mismo o a un bot")
+    @app_commands.describe(message="Mensaje destinatario incorrecto ($k será el nombre del autor)")
+    @Utility.admin_check()
+    async def wrong_target(self, interaction: discord.Interaction, message: Optional[str] = None):
+        if message is None:
+            db = await database.get_from_database(guild_id=interaction.guild.id)
+            db_message = db["wrong_target"]
+            db_message = Utility.format_message(message=db_message)
+            await interaction.response.send_message(f"El mensaje actual es: {db_message}", ephemeral=True)
+            return
+
+        formated_message = Utility.format_message(message=message)
+        await interaction.response.send_message(f"El nuevo mensaje será: {formated_message}", ephemeral=True)
+        await database.save_to_database(guild_id=interaction.guild_id, field="wrong_target", data=message)
+
     @app_commands.command(name="reset", description="Restableze las frases a los valores por defecto")
     @Utility.admin_check()
     async def reset(self, interaction: discord.Interaction):
@@ -64,7 +79,7 @@ class Customize(commands.GroupCog, name="customize"):
         if database.local_db.get(guild) is None:
             return
 
-        delete_list = ["win_message", "lose_message", "lose_penalty_message"]
+        delete_list = ["win_message", "lose_message", "lose_penalty_message", "wrong_target"]
         for field in delete_list:
             await database.del_guild_database_field(guild_id=guild, field=field)
 

@@ -38,8 +38,8 @@ class Rulet(commands.Cog):
     async def tirar_rulet(self, interaction: discord.Interaction, target:discord.Member) -> (str, bool):
         db = await database.get_from_database(guild_id=interaction.guild.id)
         if interaction.user.id == target.id or target.bot:
-            await self.timeout(interaction=interaction, user=target, db=db, multiplier=5)
-            return f"{interaction.user.display_name} creo que te amamantaron con RedBull", False
+            await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=5)
+            return db["wrong_target"], False
 
         higher_role: bool = target.top_role > interaction.guild.self_role
 

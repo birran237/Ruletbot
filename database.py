@@ -17,7 +17,8 @@ defaults = {
     "half_lose_timeout": False,
     "win_message": "${k} ha retado a un duelo a ${u} y ha ganado",
     "lose_message": "${k} ha retado a un duelo a ${u} y ha perdido",
-    "lose_penalty_message": "${k} ha retado a un duelo a ${u} y ha perdido con penalización extra"
+    "lose_penalty_message": "${k} ha retado a un duelo a ${u} y ha perdido con penalización extra",
+    "wrong_target": "${k} creo que te amamantaron con RedBull",
 }
 
 
