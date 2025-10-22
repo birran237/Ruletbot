@@ -86,7 +86,7 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         return
 
     parameters = list(Utility.get_parameters(interaction))
-    message = f"There was an error in guild **{interaction.guild}({interaction.guild_id})** with command /{interaction.command.qualified_name} {", ".join(parameters)}: **{error}**"
+    message = f"There was an error in guild **{interaction.guild}({interaction.guild_id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
     log.error(message)
     if bot.director_guild is not None:
         await bot.director_guild.system_channel.send(message)
