@@ -44,8 +44,8 @@ async def save_to_database(guild_id: int, field: str, data: int | bool | str) ->
 
 async def get_from_database(guild_id: int) -> dict:
     if guild_id in local_db:
-        log.debug(f"Getting {guild_id} from local database")
-        return local_db[guild_id]
+        log.debug(f"Trying to get {guild_id} from local database")
+        if len(local_db[guild_id]) >= len(defaults): return local_db[guild_id]
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
@@ -55,7 +55,7 @@ async def get_from_database(guild_id: int) -> dict:
     if doc.exists:
         return_dict = defaults|doc.to_dict() #return the db dict and fill the rest with defaults
 
-    if len(local_db) < 100:
+    if len(local_db) < 100 or guild_id in local_db:
         local_db[guild_id] = return_dict
     else:
         local_db.clear()

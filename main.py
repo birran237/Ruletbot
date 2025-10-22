@@ -37,7 +37,6 @@ class Bot(commands.Bot):
                 log.info(f'Loaded cog {filename[:-3]}')
 
 
-
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
 
@@ -86,9 +85,12 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta dentro de **{time}**", ephemeral=True)
         return
 
-    log.error(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {interaction.command.qualified_name}: {error}")
+    parameters = list(Utility.get_parameters(interaction))
+    message = f"There was an error in guild **{interaction.guild}({interaction.guild_id})** with command /{interaction.command.qualified_name} {", ".join(parameters)}: **{error}**"
+    log.error(message)
     if bot.director_guild is not None:
-        await bot.director_guild.system_channel.send(f"There was an error in guild {interaction.guild}({interaction.guild_id}) with command {interaction.command.qualified_name}: {error}")
+        await bot.director_guild.system_channel.send(message)
+    await interaction.response.send_message("Ha ocurrido un error inesperado, vuelve a intentarlo más tarde", ephemeral=True)
 
 bot = Bot()
 bot.tree.on_error = error_handler
