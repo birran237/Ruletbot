@@ -19,7 +19,6 @@ class Rulet(commands.Cog):
         )
         self.bot.tree.add_command(self.ctx_menu)
 
-
     @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
     @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
     @Utility.cooldown_check()
@@ -35,30 +34,30 @@ class Rulet(commands.Cog):
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
 
-    async def tirar_rulet(self, interaction: discord.Interaction, target:discord.Member) -> (str, bool):
-        db = await database.get_from_database(guild_id=interaction.guild.id)
+    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> Tuple[str, int]:
+        db = await database.get_from_database(interaction.guild.id)
+
         if interaction.user.id == target.id or target.bot:
-            await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=5)
+            await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
             return db["wrong_target"], False
 
-        higher_role: bool = target.top_role > interaction.guild.self_role
-
+        higher_role = target.top_role > interaction.guild.self_role
         if (target.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
             return f"{target.display_name} es un administrador y no le puedes retar", True
 
-
         if bool(randint(0, 1)):
-            multiplayer = 0.5 if db["half_lose_timeout"] else 1
-            await self.timeout(interaction=interaction, user=target, db=db, multiplier=multiplayer)
+            multiplier = 0.5 if db["half_lose_timeout"] else 1
+            await self.timeout(interaction, target, db, multiplier)
             return db["win_message"], False
 
-        if target.voice is not None and interaction.user.voice is None:
-            await self.timeout(interaction=interaction, user=interaction.user, db=db, multiplier=3)
-            await self.set_user_cooldown(interaction=interaction, db=db, multiplier=5)
+        if target.voice and not interaction.user.voice:
+            await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
+            await self.set_user_cooldown(interaction, db=db, multiplier=5)
             return db["lose_penalty_message"], False
 
-        await self.timeout(interaction=interaction, user=interaction.user, db=db)
-        await self.set_user_cooldown(interaction=interaction, db=db)
+        await self.timeout(interaction, interaction.user, db=db)
+        await self.set_user_cooldown(interaction, db=db)
+
         return db["lose_message"], False
 
     @staticmethod
@@ -66,21 +65,14 @@ class Rulet(commands.Cog):
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
         seconds: int = db["timeout_seconds"]
 
-        if timeout_impossible:
+        if timeout_impossible or seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")
-            log.debug(f"{user.display_name}({user.id}) has been kicked of vc in guild {interaction.guild}({interaction.guild.id})")
-            return
-
-        if seconds == 0:
-            await user.move_to(channel=None, reason="Ha perdido")
-            log.debug(f"{user.display_name}({user.id}) has been kicked of vc in guild {interaction.guild}({interaction.guild.id})")
             return
 
         timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
         if user.timed_out_until is not None and user.timed_out_until > datetime.now(UTC):
             timeout_time = timeout_time + user.timed_out_until
         await user.timeout(timeout_time, reason="Ha perdido")
-        log.debug(f"{user.display_name}({user.id}) has been timeouted for {seconds * multiplier} seconds in guild {interaction.guild}({interaction.guild.id})")
         return
 
     @staticmethod

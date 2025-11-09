@@ -124,12 +124,3 @@ class Utility:
             mapper["u"] = target.mention
 
         return Template(message).safe_substitute(mapper)
-
-    @staticmethod
-    def get_parameters(interaction: discord.Interaction):
-        ns = interaction.namespace
-        for i in interaction.command.parameters:
-            if i.name in ns:
-                yield f"{i.name}: {ns[i.name]}"
-            else:
-                yield f"{i.name}: None"
