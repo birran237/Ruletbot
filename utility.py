@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from logging.handlers import RotatingFileHandler
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Optional
 from time import time
 from string import Template
 
@@ -25,8 +25,8 @@ root_logger.addHandler(file_handler)
 log = logging.getLogger(__name__)
 class Utility:
     director_guild = None
-    disabled_servers: Dict[int, int] = {} #guild_id -> timeouted until
-    disabled_users: Dict[Tuple[int, int], int] = {} #(guild_id, member_id) -> timeouted until
+    disabled_servers: dict[int, int] = {} #guild_id -> timeouted until
+    disabled_users: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> timeouted until
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
@@ -72,15 +72,14 @@ class Utility:
     @classmethod
     def cooldown_check(cls):
         def predicate (interaction: discord.Interaction) -> bool:
-            remaining = get_guild_status(interaction.user)
-            if remaining is not None:
-                raise cls.GuildCooldown(retry_after=remaining)
+            expire_at = get_guild_status(interaction.user)
+            if expire_at is not None:
+                raise cls.GuildCooldown(retry_after=expire_at)
 
-            remaining = get_user_status(interaction.user)
-            if remaining is not None:
-                raise cls.UserCooldown(retry_after=remaining)
+            expire_at = get_user_status(interaction.user)
+            if expire_at is not None:
+                raise cls.UserCooldown(retry_after=expire_at)
             return True
-
 
         def get_guild_status(member: discord.Member) -> Optional[float]:
             if member.guild_permissions.administrator:
@@ -96,7 +95,7 @@ class Utility:
             return remaining
 
         def get_user_status(member: discord.Member) -> Optional[float]:
-            key: Tuple[int, int] = (member.guild.id, member.id)
+            key: tuple[int, int] = (member.guild.id, member.id)
             expire_at = cls.disabled_users.get(key)
             if expire_at is None:
                 return None
@@ -104,7 +103,6 @@ class Utility:
             if member.guild_permissions.administrator:
                 cls.disabled_users.pop(key)
                 return None
-
 
             remaining = expire_at - time()
             if remaining <= 0:

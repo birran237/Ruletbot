@@ -9,7 +9,9 @@ log = logging.getLogger(__name__)
 
 
 load_dotenv()
-local_db = {}
+
+db_dict = dict[str, int | bool | str]
+local_db: dict[int, db_dict] = {}
 defaults = {
     "timeout_seconds": 180,
     "lose_cooldown": 0,
@@ -30,6 +32,18 @@ credentials = service_account.Credentials.from_service_account_info(creds_dict)
 db = firestore.Client(credentials=credentials, project=firebase_project_id)
 log.info(f"Connected to firebase")
 
+class GuildConfig:
+    timeout_seconds: int
+    lose_cooldown: int
+    annoy_admins: bool
+    half_lose_timeout: bool
+    win_message: str
+    lose_message: str
+    lose_penalty_message: str
+    wrong_target: str
+
+    def __init__(self, data: db_dict):
+        self.__dict__ = defaults | data
 
 async def save_to_database(guild_id: int, field: str, data: int | bool | str) -> None:
     if field not in defaults:
@@ -42,14 +56,14 @@ async def save_to_database(guild_id: int, field: str, data: int | bool | str) ->
     log.debug(f"Updated {field} to {data} on guild {guild_id}")
 
 
-async def get_from_database(guild_id: int) -> dict:
+async def get_from_database(guild_id: int) -> GuildConfig:
     if guild_id in local_db:
-        if len(local_db[guild_id]) >= len(defaults): return local_db[guild_id]
+        if len(local_db[guild_id]) >= len(defaults): return GuildConfig(local_db[guild_id])
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
 
-    return_dict = defaults
+    return_dict:db_dict = defaults
     if doc.exists:
         return_dict = defaults|doc.to_dict() #return the db dict and fill the rest with defaults
 
@@ -58,7 +72,7 @@ async def get_from_database(guild_id: int) -> dict:
     else:
         local_db.clear()
 
-    return return_dict
+    return GuildConfig(return_dict)
 
 
 async def del_guild_database_field(guild_id: int, field: str) -> None:

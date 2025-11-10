@@ -1,10 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-
-import utility
 from utility import Utility
-from typing import Optional
 import database
 
 
@@ -15,11 +12,10 @@ class Customize(commands.GroupCog, name="customize"):
     @app_commands.command(name="win",description="Cambia el mensaje de victoria de la ruleta (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(message="Mensaje de victoria ($k será el nombre del autor y $u del objetivo)")
     @Utility.admin_check()
-    async def win(self, interaction: discord.Interaction, message: Optional[str] = None):
+    async def win(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
             db = await database.get_from_database(guild_id=interaction.guild.id)
-            db_message = db["win_message"]
-            db_message = Utility.format_message(message=db_message)
+            db_message = Utility.format_message(message=db.win_message)
             await interaction.response.send_message(f"El mensaje actual es: {db_message}", ephemeral=True)
             return
 
@@ -30,11 +26,10 @@ class Customize(commands.GroupCog, name="customize"):
     @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta")
     @app_commands.describe(message="Mensaje de derrota ($k será el nombre del autor y $u del objetivo)")
     @Utility.admin_check()
-    async def lose(self, interaction: discord.Interaction, message: Optional[str] = None):
+    async def lose(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
             db = await database.get_from_database(guild_id=interaction.guild.id)
-            db_message = db["lose_message"]
-            db_message = Utility.format_message(message=db_message)
+            db_message = Utility.format_message(message=db.lose_message)
             await interaction.response.send_message(f"El mensaje actual es: {db_message}", ephemeral=True)
             return
 
@@ -45,11 +40,10 @@ class Customize(commands.GroupCog, name="customize"):
     @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización")
     @app_commands.describe(message="Mensaje de derrota con penalización ($k será el nombre del autor y $u del objetivo)")
     @Utility.admin_check()
-    async def lose_penalty(self, interaction: discord.Interaction, message: Optional[str] = None):
+    async def lose_penalty(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
             db = await database.get_from_database(guild_id=interaction.guild.id)
-            db_message = db["lose_penalty_message"]
-            db_message = Utility.format_message(message=db_message)
+            db_message = Utility.format_message(message=db.lose_penalty_message)
             await interaction.response.send_message(f"El mensaje actual es: {db_message}", ephemeral=True)
             return
 
@@ -60,11 +54,10 @@ class Customize(commands.GroupCog, name="customize"):
     @app_commands.command(name="wrong_target",description="Cambia el mensaje de cuando un usuario haga rulet a si mismo o a un bot")
     @app_commands.describe(message="Mensaje destinatario incorrecto ($k será el nombre del autor)")
     @Utility.admin_check()
-    async def wrong_target(self, interaction: discord.Interaction, message: Optional[str] = None):
+    async def wrong_target(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
             db = await database.get_from_database(guild_id=interaction.guild.id)
-            db_message = db["wrong_target"]
-            db_message = Utility.format_message(message=db_message)
+            db_message = Utility.format_message(message=db.wrong_target)
             await interaction.response.send_message(f"El mensaje actual es: {db_message}", ephemeral=True)
             return
 

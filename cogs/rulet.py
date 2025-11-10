@@ -6,7 +6,6 @@ from random import randint
 from datetime import timedelta, datetime, UTC
 from time import time
 from utility import Utility
-from typing import Tuple
 import logging
 
 log = logging.getLogger(__name__)
@@ -34,36 +33,36 @@ class Rulet(commands.Cog):
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
 
 
-    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> Tuple[str, int]:
+    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, int]:
         db = await database.get_from_database(interaction.guild.id)
 
         if interaction.user.id == target.id or target.bot:
             await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
-            return db["wrong_target"], False
+            return db.wrong_target, False
 
         higher_role = target.top_role > interaction.guild.self_role
-        if (target.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
+        if (target.guild_permissions.administrator or higher_role) and not db.annoy_admins:
             return f"{target.display_name} es un administrador y no le puedes retar", True
 
         if bool(randint(0, 1)):
-            multiplier = 0.5 if db["half_lose_timeout"] else 1
+            multiplier = 0.5 if db.half_lose_timeout else 1
             await self.timeout(interaction, target, db, multiplier)
-            return db["win_message"], False
+            return db.win_message, False
 
         if target.voice and not interaction.user.voice:
             await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
             await self.set_user_cooldown(interaction, db=db, multiplier=5)
-            return db["lose_penalty_message"], False
+            return db.lose_penalty_message, False
 
         await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
-        return db["lose_message"], False
+        return db.lose_message, False
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, db:dict, multiplier: int = 1) -> None:
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.GuildConfig, multiplier: int = 1) -> None:
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
-        seconds: int = db["timeout_seconds"]
+        seconds: int = db.timeout_seconds
 
         if timeout_impossible or seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")
@@ -76,9 +75,9 @@ class Rulet(commands.Cog):
         return
 
     @staticmethod
-    async def set_user_cooldown(interaction: discord.Interaction, db: dict, multiplier: int = 1) -> None:
-        key: Tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        total_time: int = (db["timeout_seconds"] + db["lose_cooldown"]) * multiplier
+    async def set_user_cooldown(interaction: discord.Interaction, db: database.GuildConfig, multiplier: int = 1) -> None:
+        key: tuple[int, int] = (interaction.guild_id, interaction.user.id)
+        total_time: int = (db.timeout_seconds + db.lose_cooldown) * multiplier
         available_on: int = int(total_time + time())
 
         if interaction.user.guild_permissions.administrator:
