@@ -1,6 +1,7 @@
 from google.cloud import firestore
 from google.oauth2 import service_account
 from dotenv import load_dotenv
+from collections import OrderedDict
 import os
 import json
 import logging
@@ -11,7 +12,7 @@ log = logging.getLogger(__name__)
 load_dotenv()
 
 db_dict = dict[str, int | bool | str]
-local_db: dict[int, db_dict] = {}
+local_db: OrderedDict[int, db_dict] = OrderedDict()
 defaults = {
     "timeout_seconds": 180,
     "lose_cooldown": 0,
@@ -58,20 +59,18 @@ async def save_to_database(guild_id: int, field: str, data: int | bool | str) ->
 
 async def get_from_database(guild_id: int) -> GuildConfig:
     if guild_id in local_db:
+        local_db.move_to_end(guild_id)
         if len(local_db[guild_id]) >= len(defaults): return GuildConfig(local_db[guild_id])
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
 
-    return_dict:db_dict = defaults
-    if doc.exists:
-        return_dict = defaults|doc.to_dict() #return the db dict and fill the rest with defaults
+    return_dict:db_dict = defaults | (doc.to_dict() if doc.exists else {})
 
-    if len(local_db) < 100 or guild_id in local_db:
-        local_db[guild_id] = return_dict
-    else:
-        local_db.clear()
+    if len(local_db) >= 2000 and guild_id not in local_db:
+        local_db.popitem(last=False)
 
+    local_db[guild_id] = return_dict
     return GuildConfig(return_dict)
 
 

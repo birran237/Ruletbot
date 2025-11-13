@@ -7,6 +7,7 @@ from datetime import timedelta, datetime, UTC
 from time import time
 from utility import Utility
 import logging
+import asyncio
 
 log = logging.getLogger(__name__)
 class Rulet(commands.Cog):
@@ -22,42 +23,45 @@ class Rulet(commands.Cog):
     @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
     @Utility.cooldown_check()
     async def rulet(self, interaction: discord.Interaction, objetivo: discord.Member):
-        message, ephemeral = await self.tirar_rulet(interaction, objetivo)
+        message, ephemeral, timeout_task = await self.tirar_rulet(interaction, objetivo)
         formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
+        if timeout_task is not None:
+            await timeout_task
 
     @Utility.cooldown_check()
     async def rulet_context(self, interaction: discord.Interaction, objetivo: discord.Member):
-        message, ephemeral = await self.tirar_rulet(interaction, objetivo)
+        message, ephemeral, timeout_task = await self.tirar_rulet(interaction, objetivo)
         formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
+        if timeout_task is not None:
+            await timeout_task
 
-
-    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, int]:
+    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, bool, asyncio.Task | None]:
         db = await database.get_from_database(interaction.guild.id)
 
         if interaction.user.id == target.id or target.bot:
-            await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
-            return db.wrong_target, False
+            task = asyncio.create_task(self.timeout(interaction, user=interaction.user, db=db, multiplier=5))
+            return db.wrong_target, False, task
 
         higher_role = target.top_role > interaction.guild.self_role
         if (target.guild_permissions.administrator or higher_role) and not db.annoy_admins:
-            return f"{target.display_name} es un administrador y no le puedes retar", True
+            return f"{target.display_name} es un administrador y no le puedes retar", True, None
 
         if bool(randint(0, 1)):
             multiplier = 0.5 if db.half_lose_timeout else 1
-            await self.timeout(interaction, target, db, multiplier)
-            return db.win_message, False
+            task = asyncio.create_task(self.timeout(interaction, target, db, multiplier))
+            return db.win_message, False, task
 
         if target.voice and not interaction.user.voice:
-            await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
+            task = asyncio.create_task(self.timeout(interaction, user=interaction.user, db=db, multiplier=3))
             await self.set_user_cooldown(interaction, db=db, multiplier=5)
-            return db.lose_penalty_message, False
+            return db.lose_penalty_message, False, task
 
-        await self.timeout(interaction, interaction.user, db=db)
+        task = asyncio.create_task(self.timeout(interaction, interaction.user, db=db))
         await self.set_user_cooldown(interaction, db=db)
 
-        return db.lose_message, False
+        return db.lose_message, True, task
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.GuildConfig, multiplier: int = 1) -> None:
