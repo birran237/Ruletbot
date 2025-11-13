@@ -61,7 +61,7 @@ class Rulet(commands.Cog):
         task = asyncio.create_task(self.timeout(interaction, interaction.user, db=db))
         await self.set_user_cooldown(interaction, db=db)
 
-        return db.lose_message, True, task
+        return db.lose_message, False, task
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.GuildConfig, multiplier: int = 1) -> None:

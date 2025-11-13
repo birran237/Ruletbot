@@ -48,7 +48,8 @@ class Admin(commands.Cog):
 
         message = f"""- **Mensaje de victoria:** {db.win_message}
 - **Mensaje de derrota:** {db.lose_message}
-- **Mensaje de derrota con penalización:** {db.lose_penalty_message}"""
+- **Mensaje de derrota con penalización:** {db.lose_penalty_message}
+- **Mensaje de objetivo inválido:** {db.wrong_target}"""
         message = Utility.format_message(message=message)
         embed.add_field(name="/customize", value=message, inline=False)
 
