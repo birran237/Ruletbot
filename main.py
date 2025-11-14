@@ -1,24 +1,54 @@
+from operator import getitem
+
 import discord
 from discord.ext import commands
 from discord import app_commands
 import logging
 import os
+import signal
+import sys
+import json
 from dotenv import load_dotenv
 from utility import Utility
+import database
 
 log = logging.getLogger(__name__)
-
-database_error = None
-try:
-    import database
-except Exception as e:
-    database_error = e
-
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')
+
+def load_temp_dicts():
+    if not os.path.isfile('temp.json'):
+        return {}, {}, {}
+    def str_keys_to_int(d: dict) -> dict:
+        out: dict = {}
+        for k, v in d.items():
+            try:
+                ik = int(k)
+            except (ValueError, TypeError): continue
+            out[ik] = v
+        return out
+
+    with open('temp.json', 'r') as f:
+        data = json.load(f)
+        return (
+            data.get("local_db",{}),
+            str_keys_to_int(data.get("disabled_servers",{})),
+            str_keys_to_int(data.get("disabled_users",{}))
+        )
+
+database.local_db,Utility.disabled_servers,Utility.disabled_users = load_temp_dicts()
+
+def save_temp_dicts(signum, frame):
+    data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users}
+    with open('temp.json', 'w') as f:
+        json.dump(data, f)
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, save_temp_dicts)
+signal.signal(signal.SIGINT, save_temp_dicts)
 
 
 class Bot(commands.Bot):
@@ -40,10 +70,6 @@ class Bot(commands.Bot):
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
 
-        global database_error
-        if database_error is not None:
-            raise SystemExit(f"The database failed with error: {database_error}")
-
         try:
             director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
         except TypeError:
@@ -61,7 +87,7 @@ class Bot(commands.Bot):
         self.tree.add_command(sync_tree, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
-        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated")
+        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.disabled_users)} disabled user(s).")
         Utility.director_guild = self.director_guild
 
     @staticmethod
@@ -88,13 +114,15 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
     if interaction is None:
         return
     def param_string(parameter, namespace: discord.Interaction.namespace) -> str:
-        return f"{parameter}: {namespace.get(parameter)}"
+        if namespace is None:
+            return f'{parameter}: Unknown'
+        return f"{parameter}: {getattr(namespace, parameter)}"
 
     try:
         await interaction.response.send_message("Ha ocurrido un error inesperado, vuelve a intentarlo más tarde",ephemeral=True)
         parameters = [param_string(i.name, interaction.namespace) for i in interaction.command.parameters] if hasattr(interaction.command, 'parameters') else []
     except Exception as mssg_error:
-        message = f"There was an error and its handling this error ocurred: **{mssg_error}**"
+        message = f"There was an error and in its handling this error ocurred: **{mssg_error}**"
     else:
         message = f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 

@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from logging.handlers import RotatingFileHandler
 import logging
-from typing import Optional
 from time import time
 from string import Template
 
@@ -81,7 +80,7 @@ class Utility:
                 raise cls.UserCooldown(retry_after=expire_at)
             return True
 
-        def get_guild_status(member: discord.Member) -> Optional[float]:
+        def get_guild_status(member: discord.Member) -> float | None:
             if member.guild_permissions.administrator:
                 return None
 
@@ -94,7 +93,7 @@ class Utility:
                 return None
             return remaining
 
-        def get_user_status(member: discord.Member) -> Optional[float]:
+        def get_user_status(member: discord.Member) -> float | None:
             key: tuple[int, int] = (member.guild.id, member.id)
             expire_at = cls.disabled_users.get(key)
             if expire_at is None:
@@ -113,7 +112,7 @@ class Utility:
         return app_commands.check(predicate)
 
     @staticmethod
-    def format_message(message: str, author: Optional[discord.User | discord.Member] = None, target: Optional[discord.User | discord.Member] = None) -> str:
+    def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None) -> str:
         mapper = {"k": "*autor*", "u": "*objetivo*"}
 
         if author is not None:
