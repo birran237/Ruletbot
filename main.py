@@ -1,4 +1,4 @@
-from operator import getitem
+from time import time
 
 import discord
 from discord.ext import commands
@@ -21,7 +21,7 @@ if token is None:
 
 def load_temp_dicts():
     if not os.path.isfile('temp.json'):
-        return {}, {}, {}
+        return {}, {}, {}, {}
     def str_keys_to_int(d: dict) -> dict:
         out: dict = {}
         for k, v in d.items():
@@ -36,13 +36,14 @@ def load_temp_dicts():
         return (
             data.get("local_db",{}),
             str_keys_to_int(data.get("disabled_servers",{})),
-            str_keys_to_int(data.get("disabled_users",{}))
+            str_keys_to_int(data.get("disabled_users",{})),
+            str_keys_to_int(data.get("timeouted_admins", {}))
         )
 
-database.local_db,Utility.disabled_servers,Utility.disabled_users = load_temp_dicts()
+database.local_db,Utility.disabled_servers,Utility.disabled_users, Utility.timeouted_admins = load_temp_dicts()
 
 def save_temp_dicts(signum, frame):
-    data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users}
+    data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users, "timeouted_admins":Utility.timeouted_admins}
     with open('temp.json', 'w') as f:
         json.dump(data, f)
     sys.exit(0)
@@ -87,7 +88,7 @@ class Bot(commands.Bot):
         self.tree.add_command(sync_tree, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
-        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.disabled_users)} disabled user(s).")
+        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s), {len(Utility.disabled_users)} disabled user(s) and {len(Utility.timeouted_admins)} timeouted admin(s).")
         Utility.director_guild = self.director_guild
 
     @staticmethod
@@ -95,6 +96,20 @@ class Bot(commands.Bot):
         await database.del_guild_database(guild.id)
         log.debug(f'Guild {guild.name} has been deleted')
 
+    @staticmethod
+    async def on_voice_state_update(member, before, after):
+        if before.channel is not None:
+            return
+
+        key: tuple[int, int] = (member.guild.id, member.id)
+        if key not in Utility.timeouted_admins:
+            return
+
+        remaining: float = Utility.timeouted_admins.get(key, 0) - time()
+        if remaining <= 0:
+            Utility.timeouted_admins.pop(key)
+            return
+        await member.move_to(channel=None, reason="Ha perdido")
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
     if isinstance(error, Utility.AdminError):

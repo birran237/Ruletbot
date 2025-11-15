@@ -68,7 +68,12 @@ class Rulet(commands.Cog):
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
         seconds: int = db.timeout_seconds
 
-        if timeout_impossible or seconds == 0:
+        if timeout_impossible:
+            await user.move_to(channel=None, reason="Ha perdido")
+            key: tuple[int, int] = (user.guild.id, user.id)
+            Utility.timeouted_admins[key] = int(time() + (seconds * multiplier))
+            return
+        if seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")
             return
 

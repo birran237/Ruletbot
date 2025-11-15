@@ -24,8 +24,9 @@ root_logger.addHandler(file_handler)
 log = logging.getLogger(__name__)
 class Utility:
     director_guild = None
-    disabled_servers: dict[int, int] = {} #guild_id -> timeouted until
-    disabled_users: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> timeouted until
+    disabled_servers: dict[int, int] = {} #guild_id -> disabled until
+    disabled_users: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> cooldown until
+    timeouted_admins: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> timeout until
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
