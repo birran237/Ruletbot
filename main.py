@@ -1,5 +1,4 @@
 from time import time
-
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -11,6 +10,7 @@ import json
 from dotenv import load_dotenv
 from utility import Utility
 import database
+from collections import OrderedDict
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ if token is None:
 
 def load_temp_dicts():
     if not os.path.isfile('temp.json'):
-        return {}, {}, {}, {}
+        return OrderedDict(), {}, {}, {}
     def str_keys_to_int(d: dict) -> dict:
         out: dict = {}
         for k, v in d.items():
@@ -34,7 +34,7 @@ def load_temp_dicts():
     with open('temp.json', 'r') as f:
         data = json.load(f)
         return (
-            data.get("local_db",{}),
+            OrderedDict(data.get("local_db",{})),
             str_keys_to_int(data.get("disabled_servers",{})),
             str_keys_to_int(data.get("disabled_users",{})),
             str_keys_to_int(data.get("timeouted_admins", {}))
