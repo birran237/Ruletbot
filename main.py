@@ -4,13 +4,11 @@ from discord.ext import commands
 from discord import app_commands
 import logging
 import os
-import signal
-import sys
-import json
+import asyncio
 from dotenv import load_dotenv
 from utility import Utility
 import database
-from collections import OrderedDict
+from loader import load_temp_dicts
 
 log = logging.getLogger(__name__)
 
@@ -19,38 +17,6 @@ token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')
 
-def load_temp_dicts():
-    if not os.path.isfile('temp.json'):
-        return OrderedDict(), {}, {}, {}
-    def str_keys_to_int(d: dict) -> dict:
-        out: dict = {}
-        for k, v in d.items():
-            try:
-                ik = int(k)
-            except (ValueError, TypeError): continue
-            out[ik] = v
-        return out
-
-    with open('temp.json', 'r') as f:
-        data = json.load(f)
-        return (
-            OrderedDict(data.get("local_db",{})),
-            str_keys_to_int(data.get("disabled_servers",{})),
-            str_keys_to_int(data.get("disabled_users",{})),
-            str_keys_to_int(data.get("timeouted_admins", {}))
-        )
-
-database.local_db,Utility.disabled_servers,Utility.disabled_users, Utility.timeouted_admins = load_temp_dicts()
-
-def save_temp_dicts(signum, frame):
-    data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users, "timeouted_admins":Utility.timeouted_admins}
-    with open('temp.json', 'w') as f:
-        json.dump(data, f)
-    sys.exit(0)
-
-signal.signal(signal.SIGTERM, save_temp_dicts)
-signal.signal(signal.SIGINT, save_temp_dicts)
-
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -58,8 +24,16 @@ class Bot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
         self.help_command = None
         self.activity = discord.CustomActivity(name="Pegando escopetazos")
-        self.director_guild = None
+        self.director_guild: discord.Guild | None = None
+        self.loader_coro: asyncio.Task | None = None
 
+    def run(self, func_token:str, reconnect:bool = True, *args, **kwargs) -> None:
+        async def runner():
+            self.loader_coro = asyncio.create_task(load_temp_dicts())
+            async with self:
+                await self.start(func_token, reconnect=reconnect)
+
+        asyncio.run(runner())
 
     async def setup_hook(self):
         for filename in os.listdir('./cogs'):
@@ -70,6 +44,7 @@ class Bot(commands.Bot):
 
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
+        await self.loader_coro
 
         try:
             director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
@@ -88,7 +63,7 @@ class Bot(commands.Bot):
         self.tree.add_command(sync_tree, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
-        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s), {len(Utility.disabled_users)} disabled user(s) and {len(Utility.timeouted_admins)} timeouted admin(s).")
+        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.disabled_users)} disabled user(s)")
         Utility.director_guild = self.director_guild
 
     @staticmethod
@@ -102,12 +77,15 @@ class Bot(commands.Bot):
             return
 
         key: tuple[int, int] = (member.guild.id, member.id)
-        if key not in Utility.timeouted_admins:
+        if key not in Utility.disabled_users:
             return
 
-        remaining: float = Utility.timeouted_admins.get(key, 0) - time()
+        if not member.guild_permissions.administrator:
+            return
+
+        remaining: float = Utility.disabled_users.get(key, 0) - time()
         if remaining <= 0:
-            Utility.timeouted_admins.pop(key)
+            Utility.disabled_users.pop(key)
             return
         await member.move_to(channel=None, reason="Ha perdido")
 
@@ -117,13 +95,11 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         return
 
     if isinstance(error, Utility.GuildCooldown):
-        time = Utility.format_seconds(error.retry_after)
-        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta dentro de **{time}**", ephemeral=True)
+        await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta <t:{error.expire_at}:R>", ephemeral=True)
         return
 
     if isinstance(error, Utility.UserCooldown):
-        time = Utility.format_seconds(error.retry_after)
-        await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta dentro de **{time}**", ephemeral=True)
+        await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta <t:{error.expire_at}:R>", ephemeral=True)
         return
 
     if interaction is None:

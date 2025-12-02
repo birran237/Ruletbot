@@ -26,15 +26,14 @@ class Utility:
     director_guild = None
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
     disabled_users: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> cooldown until
-    timeouted_admins: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> timeout until
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
-        def __init__(self, retry_after: float) -> None:
-            self.retry_after: float = retry_after
+        def __init__(self, expire_at: float) -> None:
+            self.expire_at: float = expire_at
     class UserCooldown(app_commands.CheckFailure):
-        def __init__(self, retry_after: float) -> None:
-            self.retry_after: float = retry_after
+        def __init__(self, expire_at: float) -> None:
+            self.expire_at: float = expire_at
 
     @staticmethod
     def format_seconds(seconds: int | float) -> str:
@@ -74,11 +73,11 @@ class Utility:
         def predicate (interaction: discord.Interaction) -> bool:
             expire_at = get_guild_status(interaction.user)
             if expire_at is not None:
-                raise cls.GuildCooldown(retry_after=expire_at)
+                raise cls.GuildCooldown(expire_at=expire_at)
 
             expire_at = get_user_status(interaction.user)
             if expire_at is not None:
-                raise cls.UserCooldown(retry_after=expire_at)
+                raise cls.UserCooldown(expire_at=expire_at)
             return True
 
         def get_guild_status(member: discord.Member) -> float | None:
@@ -88,11 +87,10 @@ class Utility:
             expire_at = cls.disabled_servers.get(member.guild.id)
             if expire_at is None:
                 return None
-            remaining = expire_at - time()
-            if remaining <= 0:
+            if expire_at <= time():
                 cls.disabled_servers.pop(member.guild.id)
                 return None
-            return remaining
+            return expire_at
 
         def get_user_status(member: discord.Member) -> float | None:
             key: tuple[int, int] = (member.guild.id, member.id)
@@ -100,15 +98,10 @@ class Utility:
             if expire_at is None:
                 return None
 
-            if member.guild_permissions.administrator:
+            if expire_at <= time():
                 cls.disabled_users.pop(key)
                 return None
-
-            remaining = expire_at - time()
-            if remaining <= 0:
-                cls.disabled_users.pop(key)
-                return None
-            return remaining
+            return expire_at
 
         return app_commands.check(predicate)
 

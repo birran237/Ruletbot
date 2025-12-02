@@ -71,7 +71,7 @@ class Rulet(commands.Cog):
         if timeout_impossible:
             await user.move_to(channel=None, reason="Ha perdido")
             key: tuple[int, int] = (user.guild.id, user.id)
-            Utility.timeouted_admins[key] = int(time() + (seconds * multiplier))
+            Utility.disabled_users[key] = int(time() + (seconds * multiplier))
             return
         if seconds == 0:
             await user.move_to(channel=None, reason="Ha perdido")

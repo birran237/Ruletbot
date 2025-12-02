@@ -16,12 +16,13 @@ class Admin(commands.Cog):
     @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
     @Utility.admin_check()
     async def disable(self, interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080] | None = None):
+        timeouted_until = Utility.disabled_servers.get(interaction.guild.id, 0)
         remaining_time = Utility.disabled_servers.get(interaction.guild.id, 0) - time()
         if minutes is None:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot está habilitado", ephemeral=True)
                 return
-            await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{Utility.format_seconds(remaining_time)}**", ephemeral=True)
+            await interaction.response.send_message(f"El bot no funcionará hasta <t:{timeouted_until}:R>", ephemeral=True)
             return
 
         if minutes == 0:
@@ -35,7 +36,7 @@ class Admin(commands.Cog):
 
         expire_at = int(time() + (minutes * 60))
         Utility.disabled_servers[interaction.guild_id] = expire_at
-        await interaction.response.send_message(f"El bot no funcionará hasta dentro de **{Utility.format_seconds(minutes * 60)}**", ephemeral=True)
+        await interaction.response.send_message(f"El bot no funcionará hasta <t:{timeouted_until}:R>", ephemeral=True)
 
     @app_commands.command(name="info", description="Mostrar toda la configuración actual")
     @Utility.admin_check()
