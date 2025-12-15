@@ -1,14 +1,13 @@
-from time import time
+from utility import Utility, Loader
+import database
 import discord
 from discord.ext import commands
 from discord import app_commands
-import logging
-import os
-import asyncio
+from time import time
+import logging, os, asyncio
 from dotenv import load_dotenv
-from utility import Utility
-import database
-from loader import load_temp_dicts
+from typing import Literal
+from collections import OrderedDict
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class Bot(commands.Bot):
 
     def run(self, func_token:str, reconnect:bool = True, *args, **kwargs) -> None:
         async def runner():
-            self.loader_coro = asyncio.create_task(load_temp_dicts())
+            self.loader_coro = asyncio.create_task(Loader.load_temp_dicts())
             async with self:
                 await self.start(func_token, reconnect=reconnect)
 
@@ -61,6 +60,7 @@ class Bot(commands.Bot):
             return
 
         self.tree.add_command(sync_tree, guild=self.director_guild)
+        self.tree.add_command(erase_local_variables, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
         await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.disabled_users)} disabled user(s)")
@@ -121,7 +121,6 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
     if bot.director_guild is not None:
         await bot.director_guild.system_channel.send(message)
 
-
 bot = Bot()
 bot.tree.on_error = error_handler
 
@@ -129,6 +128,25 @@ bot.tree.on_error = error_handler
 async def sync_tree(interaction: discord.Interaction):
     synced = await bot.tree.sync()
     await interaction.response.send_message(f"Successfully synced {len(synced)} commands")
+
+@app_commands.command(description="Borrar la base de datos local")
+@app_commands.describe(variable="Variable a eliminar")
+async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users"] | None = None):
+    if variable is None:
+        database.local_db, Utility.disabled_servers, Utility.disabled_users = OrderedDict(), {}, {}
+        interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
+        return
+    match variable:
+        case "local_db":
+            interaction.response.send_message(f"Se han eliminado {len(database.local_db)} elementos de la base de datos local")
+            database.local_db = OrderedDict()
+        case "disabled_servers":
+            interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_servers)} elementos de los servidores deshabilitados")
+            Utility.disabled_servers = {}
+        case "disabled_users":
+            interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_users)} elementos de los usuarios deshabilitados")
+            Utility.disabled_users = {}
+    return
 
 
 if __name__ == "__main__":

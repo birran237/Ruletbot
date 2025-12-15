@@ -3,25 +3,31 @@ from discord import app_commands
 from logging.handlers import RotatingFileHandler
 import logging
 from time import time
+import signal, sys, os, pickle
+from collections import OrderedDict
 from string import Template
+import database
 
-formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",datefmt="%Y-%m-%d %H:%M:%S")
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-console_handler.setLevel(logging.INFO)
+def create_logger():
+    formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+                                  datefmt="%Y-%m-%d %H:%M:%S")
 
-file_handler = RotatingFileHandler("discord.log", maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
 
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
-root_logger.handlers.clear()
-root_logger.addHandler(console_handler)
-root_logger.addHandler(file_handler)
+    file_handler = RotatingFileHandler("discord.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
 
-log = logging.getLogger(__name__)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers.clear()
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+
+
 class Utility:
     director_guild = None
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
@@ -115,3 +121,53 @@ class Utility:
             mapper["u"] = target.mention
 
         return Template(message).safe_substitute(mapper)
+
+class Loader:
+    state_path = "state.pkl"
+    tmp_path = "state.pkl.tmp"
+
+    @staticmethod
+    async def purge_expired_entries(d: dict) -> dict:
+        out: dict = {}
+        current_time = time()
+        for key, value in d.items():
+            if value > current_time:
+                out[key] = value
+        return out
+
+    @classmethod
+    async def process_temp_dicts(cls):
+        if not os.path.isfile(cls.state_path):
+            return OrderedDict(), {}, {}
+
+        with open(cls.state_path, 'rb') as f:
+            try:
+                data = pickle.load(f)
+            except EOFError:
+                print("puta")
+                return OrderedDict(), {}, {}
+
+            return (
+                data.get("local_db",OrderedDict()),
+                await cls.purge_expired_entries(data.get("disabled_servers", {})),
+                await cls.purge_expired_entries(data.get("disabled_users", {}))
+            )
+
+    @classmethod
+    async def load_temp_dicts(cls) -> None:
+        database.local_db,Utility.disabled_servers,Utility.disabled_users = await cls.process_temp_dicts()
+        return
+
+    def save_temp_dicts(self, signum, frame) -> None:
+        data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users}
+        with open(self.tmp_path, 'wb') as f:
+            pickle.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(self.tmp_path, self.state_path)
+        sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, Loader.save_temp_dicts)
+signal.signal(signal.SIGINT, Loader.save_temp_dicts)
+create_logger()
