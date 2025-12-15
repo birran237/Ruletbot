@@ -36,7 +36,7 @@ class Admin(commands.Cog):
 
         expire_at = int(time() + (minutes * 60))
         Utility.disabled_servers[interaction.guild_id] = expire_at
-        await interaction.response.send_message(f"El bot no funcionará hasta <t:{timeouted_until}:R>", ephemeral=True)
+        await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
 
     @app_commands.command(name="info", description="Mostrar toda la configuración actual")
     @Utility.admin_check()

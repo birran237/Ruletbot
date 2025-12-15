@@ -131,22 +131,20 @@ async def sync_tree(interaction: discord.Interaction):
 
 @app_commands.command(description="Borrar la base de datos local")
 @app_commands.describe(variable="Variable a eliminar")
-async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users"] | None = None):
-    if variable is None:
-        database.local_db, Utility.disabled_servers, Utility.disabled_users = OrderedDict(), {}, {}
-        interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
-        return
+async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users", "all"]):
     match variable:
+        case "all":
+            database.local_db, Utility.disabled_servers, Utility.disabled_users = OrderedDict(), {}, {}
+            await interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
         case "local_db":
-            interaction.response.send_message(f"Se han eliminado {len(database.local_db)} elementos de la base de datos local")
+            await interaction.response.send_message(f"Se han eliminado {len(database.local_db)} elementos de la base de datos local")
             database.local_db = OrderedDict()
         case "disabled_servers":
-            interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_servers)} elementos de los servidores deshabilitados")
+            await interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_servers)} elementos de los servidores deshabilitados")
             Utility.disabled_servers = {}
         case "disabled_users":
-            interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_users)} elementos de los usuarios deshabilitados")
+            await interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_users)} elementos de los usuarios deshabilitados")
             Utility.disabled_users = {}
-    return
 
 
 if __name__ == "__main__":

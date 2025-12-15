@@ -158,13 +158,14 @@ class Loader:
         database.local_db,Utility.disabled_servers,Utility.disabled_users = await cls.process_temp_dicts()
         return
 
-    def save_temp_dicts(self, signum, frame) -> None:
+    @classmethod
+    def save_temp_dicts(cls, signum, frame) -> None:
         data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users}
-        with open(self.tmp_path, 'wb') as f:
+        with open(cls.tmp_path, 'wb') as f:
             pickle.dump(data, f)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(self.tmp_path, self.state_path)
+        os.replace(cls.tmp_path, cls.state_path)
         sys.exit(0)
 
 
