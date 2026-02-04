@@ -87,9 +87,6 @@ class Utility:
             return True
 
         def get_guild_status(member: discord.Member) -> float | None:
-            if member.guild_permissions.administrator:
-                return None
-
             expire_at = cls.disabled_servers.get(member.guild.id)
             if expire_at is None:
                 return None
