@@ -13,31 +13,22 @@ log = logging.getLogger(__name__)
 class Rulet(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.add_rulet_command()
-    def add_rulet_command(self):
-        rulet_ctx = app_commands.ContextMenu(
+        self.rulet_ctx = app_commands.ContextMenu(
             name='Retar a la rulet',
             callback=self.rulet_command,
         )
-        self.bot.tree.add_command(rulet_ctx)
-        rulet_app = app_commands.Command(
-            name='rulet',
-            description='Retar la rulet',
-            callback=self.rulet_command
-        )
-        self.bot.tree.add_command(rulet_app)
-        rulet_app.get_parameter("objetivo").description = "La persona a la que retaras a la rulet"
+        self.bot.tree.add_command(self.rulet_ctx)
 
 
-    # @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
-    # @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
-    # @Utility.cooldown_check()
-    # async def rulet(self, interaction: discord.Interaction, objetivo: discord.Member):
-    #     message, ephemeral, timeout_task = await self.tirar_rulet(interaction, objetivo)
-    #     formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
-    #     await interaction.response.send_message(formated_message, ephemeral=ephemeral)
-    #     if timeout_task is not None:
-    #         await timeout_task
+    @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
+    @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
+    @Utility.cooldown_check()
+    async def rulet(self, interaction: discord.Interaction, objetivo: discord.Member):
+        message, ephemeral, timeout_task = await self.tirar_rulet(interaction, objetivo)
+        formated_message = Utility.format_message(message, author=interaction.user, target=objetivo)
+        await interaction.response.send_message(formated_message, ephemeral=ephemeral)
+        if timeout_task is not None:
+            await timeout_task
 
     @Utility.cooldown_check()
     async def rulet_command(self, interaction: discord.Interaction, objetivo: discord.Member):
