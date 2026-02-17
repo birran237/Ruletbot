@@ -54,7 +54,7 @@ class Rulet(commands.Cog):
         if bool(randint(0, 1)):
             multiplier = 0.5 if db.half_lose_timeout else 1
             task = await self.timeout(interaction, target, db, multiplier)
-            return db.win_message, interaction.user, task
+            return db.win_message, target, task
 
         if target.voice and not interaction.user.voice:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
