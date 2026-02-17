@@ -100,12 +100,13 @@ class Utility:
             key: tuple[int, int] = (member.guild.id, member.id)
             if key not in cls.users_status:
                 return None
-            cooldown_until = cls.users_status[key].get("cooldown_until")
-            if cooldown_until is None:
+            cooldown_until = max(cls.users_status[key].get("cooldown_until",0), cls.users_status[key].get("timeout_until",0))
+            if cooldown_until == 0:
                 return None
 
             if cooldown_until <= time():
                 del cls.users_status[key]["cooldown_until"]
+                del cls.users_status[key]["timeout_until"]
                 return None
             return cooldown_until
 
@@ -113,7 +114,7 @@ class Utility:
 
     @staticmethod
     def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None, victim: discord.User | discord.Member | None = None) -> str:
-        mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos"}
+        mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos*"}
 
         if author is not None:
             mapper['k'] = author.display_name
