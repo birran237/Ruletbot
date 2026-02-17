@@ -76,7 +76,7 @@ class Bot(commands.Bot):
         if before.channel is not None:
             return
 
-        if not member.guild_permissions.administrator or member.top_role < member.guild.me.top_role:
+        if not member.guild_permissions.administrator and member.top_role < member.guild.me.top_role:
             return
 
         key: tuple[int, int] = (member.guild.id, member.id)
