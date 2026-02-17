@@ -63,7 +63,7 @@ class Bot(commands.Bot):
         self.tree.add_command(erase_local_variables, guild=self.director_guild)
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
-        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.disabled_users)} disabled user(s)")
+        await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.users_status)} disabled user(s)")
         Utility.director_guild = self.director_guild
 
     @staticmethod
@@ -76,16 +76,16 @@ class Bot(commands.Bot):
         if before.channel is not None:
             return
 
+        if not member.guild_permissions.administrator or member.top_role < member.guild.me.top_role:
+            return
+
         key: tuple[int, int] = (member.guild.id, member.id)
-        if key not in Utility.disabled_users:
+        if key not in Utility.users_status:
             return
 
-        if not member.guild_permissions.administrator:
-            return
-
-        remaining: float = Utility.disabled_users.get(key, 0) - time()
+        remaining: float = Utility.users_status[key].get("timeout_until", 0) - time()
         if remaining <= 0:
-            Utility.disabled_users.pop(key)
+            del Utility.users_status[key]["timeout_until"]
             return
         await member.move_to(channel=None, reason="Ha perdido")
 
@@ -134,7 +134,7 @@ async def sync_tree(interaction: discord.Interaction):
 async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users", "all"]):
     match variable:
         case "all":
-            database.local_db, Utility.disabled_servers, Utility.disabled_users = OrderedDict(), {}, {}
+            database.local_db, Utility.disabled_servers, Utility.users_status = OrderedDict(), {}, {}
             await interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
         case "local_db":
             await interaction.response.send_message(f"Se han eliminado {len(database.local_db)} elementos de la base de datos local")
@@ -143,8 +143,8 @@ async def erase_local_variables(interaction: discord.Interaction, variable: Lite
             await interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_servers)} elementos de los servidores deshabilitados")
             Utility.disabled_servers = {}
         case "disabled_users":
-            await interaction.response.send_message(f"Se han eliminado {len(Utility.disabled_users)} elementos de los usuarios deshabilitados")
-            Utility.disabled_users = {}
+            await interaction.response.send_message(f"Se han eliminado {len(Utility.users_status)} elementos de los usuarios deshabilitados")
+            Utility.users_status = {}
 
 
 if __name__ == "__main__":

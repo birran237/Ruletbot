@@ -7,6 +7,7 @@ import signal, sys, os, pickle
 from collections import OrderedDict
 from string import Template
 import database
+from typing import Literal, Any
 
 
 def create_logger():
@@ -31,7 +32,7 @@ def create_logger():
 class Utility:
     director_guild = None
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
-    disabled_users: dict[tuple[int, int], int] = {} #(guild_id, member_id) -> cooldown until
+    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until"],int]] = {} #(guild_id, member_id) -> {}
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
@@ -97,14 +98,16 @@ class Utility:
 
         def get_user_status(member: discord.Member) -> float | None:
             key: tuple[int, int] = (member.guild.id, member.id)
-            expire_at = cls.disabled_users.get(key)
-            if expire_at is None:
+            if key not in cls.users_status:
+                return None
+            cooldown_until = cls.users_status[key].get("cooldown_until")
+            if cooldown_until is None:
                 return None
 
-            if expire_at <= time():
-                cls.disabled_users.pop(key)
+            if cooldown_until <= time():
+                del cls.users_status[key]["cooldown_until"]
                 return None
-            return expire_at
+            return cooldown_until
 
         return app_commands.check(predicate)
 
@@ -132,6 +135,16 @@ class Loader:
                 out[key] = value
         return out
 
+    @staticmethod
+    async def purge_expired_nested_entries(d: dict[Any, dict]) -> dict:
+        out: dict = {}
+        current_time = time()
+        for key, nested_dict in d.items():
+            max_value = max(nested_dict.values())
+            if max_value > current_time:
+                out[key] = nested_dict
+        return out
+
     @classmethod
     async def process_temp_dicts(cls):
         if not os.path.isfile(cls.state_path):
@@ -141,23 +154,22 @@ class Loader:
             try:
                 data = pickle.load(f)
             except EOFError:
-                print("puta")
                 return OrderedDict(), {}, {}
 
             return (
                 data.get("local_db",OrderedDict()),
                 await cls.purge_expired_entries(data.get("disabled_servers", {})),
-                await cls.purge_expired_entries(data.get("disabled_users", {}))
+                await cls.purge_expired_nested_entries(data.get("users_status", {}))
             )
 
     @classmethod
     async def load_temp_dicts(cls) -> None:
-        database.local_db,Utility.disabled_servers,Utility.disabled_users = await cls.process_temp_dicts()
+        database.local_db,Utility.disabled_servers,Utility.users_status = await cls.process_temp_dicts()
         return
 
     @classmethod
     def save_temp_dicts(cls, signum, frame) -> None:
-        data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"disabled_users":Utility.disabled_users}
+        data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"users_status":Utility.users_status}
         with open(cls.tmp_path, 'wb') as f:
             pickle.dump(data, f)
             f.flush()
