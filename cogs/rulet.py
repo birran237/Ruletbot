@@ -75,30 +75,27 @@ class Rulet(commands.Cog):
         if key not in Utility.users_status:
             Utility.users_status[key] = {}
 
-        if Utility.users_status[key].get("timeout_until", 0) > time():
-            new_value = Utility.users_status[key].get("timeout_until", 0) + (seconds * multiplier)
-        else:
-            new_value = int(time() + (seconds * multiplier))
-        Utility.users_status[key]["timeout_until"] = new_value
-
         if timeout_impossible or seconds == 0:
+            new_value = max(Utility.users_status[key].get("timeout_until", 0), int(time()))
+            Utility.users_status[key]["timeout_until"] = new_value + (seconds * multiplier)
             task = asyncio.create_task(user.move_to(channel=None, reason="Ha perdido"))
             return task
 
         timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
+        Utility.users_status[key]["timeout_until"] = int(time()) + (seconds * multiplier)
+
         if user.timed_out_until is not None and user.timed_out_until > datetime.now(UTC):
             timeout_time = timeout_time + user.timed_out_until
+            Utility.users_status[key]["timeout_until"] = int(timeout_time.timestamp())
+
         task = asyncio.create_task(user.timeout(timeout_time, reason="Ha perdido"))
         return task
 
     @staticmethod
     async def set_user_cooldown(interaction: discord.Interaction, db: database.GuildConfig, multiplier: int = 1) -> None:
         key: tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        total_time: int = (db.timeout_seconds + db.lose_cooldown) * multiplier
+        total_time: int = db.timeout_seconds + (db.lose_cooldown * multiplier)
         available_on: int = int(total_time + time())
-
-        if interaction.user.guild_permissions.administrator:
-            return
 
         if key not in Utility.users_status:
             Utility.users_status[key] = {}

@@ -15,13 +15,13 @@ db_dict = dict[str, int | bool | str]
 local_db: OrderedDict[int, db_dict] = OrderedDict()
 defaults = {
     "timeout_seconds": 180,
-    "lose_cooldown": 0,
+    "lose_cooldown": 30,
     "annoy_admins": True,
     "half_lose_timeout": False,
     "win_message": "${k} ha retado a un duelo a ${u} y ha ganado",
     "lose_message": "${k} ha retado a un duelo a ${u} y ha perdido",
-    "lose_penalty_message": "${k} ha retado a un duelo a ${u} y ha perdido con penalización extra",
-    "wrong_target": "${k} creo que te amamantaron con RedBull",
+    "lose_penalty_message": "${k} ha retado a un duelo a ${u} y ha perdido con penalización extra (hasta dentro de $t)",
+    "wrong_target": "${k} tus dos abuelos son la misma persona (no vuelve hasta dentro de $t)",
 }
 
 
@@ -45,6 +45,8 @@ class GuildConfig:
 
     def __init__(self, data: db_dict):
         self.__dict__ = defaults | data
+        if "lose_penalty_message" not in data:
+            self.lose_penalty_message = data["lose_message"]
 
 async def save_to_database(guild_id: int, field: str, data: int | bool | str) -> None:
     if field not in defaults:

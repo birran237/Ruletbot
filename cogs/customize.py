@@ -10,7 +10,7 @@ class Customize(commands.GroupCog, name="customize"):
         self.bot = bot
 
     @app_commands.command(name="win",description="Cambia el mensaje de victoria de la ruleta (deja en blanco para ver ajustes actuales)")
-    @app_commands.describe(message="Mensaje de victoria ($k será el nombre del autor y $u del objetivo)")
+    @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
     @Utility.admin_check()
     async def win(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
@@ -24,7 +24,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="win_message", data=message)
 
     @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta")
-    @app_commands.describe(message="Mensaje de derrota ($k será el nombre del autor y $u del objetivo)")
+    @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
     @Utility.admin_check()
     async def lose(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
@@ -38,7 +38,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_message", data=message)
 
     @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización")
-    @app_commands.describe(message="Mensaje de derrota con penalización ($k será el nombre del autor y $u del objetivo)")
+    @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
     @Utility.admin_check()
     async def lose_penalty(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:
@@ -52,7 +52,7 @@ class Customize(commands.GroupCog, name="customize"):
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_penalty_message", data=message)
 
     @app_commands.command(name="wrong_target",description="Cambia el mensaje de cuando un usuario haga rulet a si mismo o a un bot")
-    @app_commands.describe(message="Mensaje destinatario incorrecto ($k será el nombre del autor)")
+    @app_commands.describe(message="$k será el nombre del autor y $t el tiempo de timeout")
     @Utility.admin_check()
     async def wrong_target(self, interaction: discord.Interaction, message: str | None = None):
         if message is None:

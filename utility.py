@@ -112,13 +112,17 @@ class Utility:
         return app_commands.check(predicate)
 
     @staticmethod
-    def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None) -> str:
-        mapper = {"k": "*autor*", "u": "*objetivo*"}
+    def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None, victim: discord.User | discord.Member | None = None) -> str:
+        mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos"}
 
         if author is not None:
-            mapper["k"] = author.display_name
+            mapper['k'] = author.display_name
         if target is not None:
-            mapper["u"] = target.mention
+            mapper['u'] = target.mention
+        if victim is not None:
+            key: tuple[int, int] = (victim.guild.id, victim.id)
+            timeout_until = Utility.users_status[key].get("timeout_until",time())
+            mapper['t'] = f"<t:{timeout_until}:R>"
 
         return Template(message).safe_substitute(mapper)
 
