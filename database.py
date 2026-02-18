@@ -56,10 +56,10 @@ async def get_from_database(guild_id: int) -> db_dict:
 
 
     return_dict:db_dict = defaults | doc
-    if "win_streak_message" not in doc:
-        return_dict["win_streak_message"] = defaults["win_message"]
-    if "lose_penalty_message" not in doc:
-        return_dict["lose_penalty_message"] = defaults["lose_message"]
+    if "win_streak_message" not in doc and "win_message" in doc:
+        return_dict["win_streak_message"] = doc["win_message"]
+    if "lose_penalty_message" not in doc and "lose_message" in doc:
+        return_dict["lose_penalty_message"] = doc["lose_message"]
     if len(local_db) >= 2000:
         local_db.popitem(last=False)
 
