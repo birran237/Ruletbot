@@ -48,10 +48,10 @@ class Rulet(commands.Cog):
 
         if interaction.user.id == target.id or target.bot:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
-            return db["wrong_target"], interaction.user, task
+            return db['wrong_target'], interaction.user, task
 
         higher_role = target.top_role > interaction.guild.self_role
-        if (target.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
+        if (target.guild_permissions.administrator or higher_role) and not db['annoy_admins']:
             return f"{target.display_name} es un administrador y no le puedes retar", None, None
 
 
@@ -62,25 +62,25 @@ class Rulet(commands.Cog):
         if randint(0, 1) + extra_chance > 0.5:
             Utility.users_status[key]["streak"] += 1
             Utility.users_status[key]["streak_expiates"] = int(time()) + 300
-            multiplier = 0.5 if db["half_lose_timeout"] else 1
-            message = db["win_message"] if extra_chance < 3 else db["win_streak_message"]
+            multiplier = 0.5 if db['half_lose_timeout'] else 1
+            message = db['win_message'] if extra_chance < 3 else db['win_streak_message']
             task = await self.timeout(interaction, target, db, multiplier)
             return message, target, task
 
         if target.voice and not interaction.user.voice:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
             await self.set_user_cooldown(interaction, db=db, multiplier=5)
-            return db["lose_penalty_message"], interaction.user, task
+            return db['lose_penalty_message'], interaction.user, task
 
         task = await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
-        return db["lose_message"], interaction.user, task
+        return db['lose_message'], interaction.user, task
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> asyncio.Task:
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
-        seconds: int = db["timeout_seconds"]
+        seconds: int = db['timeout_seconds']
 
         key: tuple[int, int] = (user.guild.id, user.id)
         if key not in Utility.users_status:
@@ -111,7 +111,7 @@ class Rulet(commands.Cog):
     @staticmethod
     async def set_user_cooldown(interaction: discord.Interaction, db: database.db_dict, multiplier: int = 1) -> None:
         key: tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        total_time: int = db["timeout_seconds"] + (db["lose_cooldown"] * multiplier)
+        total_time: int = db['timeout_seconds'] + (db['lose_cooldown'] * multiplier)
         available_on: int = int(total_time + time())
 
         if key not in Utility.users_status:

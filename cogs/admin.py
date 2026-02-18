@@ -45,17 +45,17 @@ class Admin(commands.Cog):
         embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
         db = await database.get_from_database(interaction.guild.id)
 
-        message: str = f"""- **Tiempo de timeout:** {Utility.format_seconds(db["timeout_seconds"])}
-- **Cooldown extra de derrota:** {Utility.format_seconds(db["lose_cooldown"])}
-- **Afectar a administradores:** {"Sí" if db["annoy_admins"] else "No"}
-- **Mitad de castigo para los que son retados:** {"Sí" if db["half_lose_timeout"] else "No"}"""
+        message: str = f"""- **Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
+- **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
+- **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
+- **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}"""
         embed.add_field(name="/set", value=message, inline=False)
 
-        message = f"""- **Mensaje de victoria:** {db["win_message"]}
-- **Mensaje de victoria con racha:** {db["win_streak_message"]}
-- **Mensaje de derrota:** {db["lose_message"]}
-- **Mensaje de derrota con penalización:** {db["lose_penalty_message"]}
-- **Mensaje de objetivo inválido:** {db["wrong_target"]}"""
+        message = f"""- **Mensaje de victoria:** {db['win_message']}
+- **Mensaje de victoria con racha:** {db['win_streak_message']}
+- **Mensaje de derrota:** {db['lose_message']}
+- **Mensaje de derrota con penalización:** {db['lose_penalty_message']}
+- **Mensaje de objetivo inválido:** {db['wrong_target']}"""
         message = Utility.format_message(message=message)
         embed.add_field(name="/customize", value=message, inline=False)
 
@@ -79,7 +79,7 @@ class Admin(commands.Cog):
     async def set_lose_cooldown(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 900] | None = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
-            await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db["lose_cooldown"])}", ephemeral=True)
+            await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db['lose_cooldown'])}", ephemeral=True)
             return
 
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_cooldown", data=seconds)
@@ -91,7 +91,7 @@ class Admin(commands.Cog):
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool | None = None):
         if affect_admins is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
-            message_mod = "también" if db["annoy_admins"] else "no"
+            message_mod = "también" if db['annoy_admins'] else "no"
             await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores al mio y a los administradores", ephemeral=True)
             return
 
@@ -105,7 +105,7 @@ class Admin(commands.Cog):
     async def set_half_lose_timeout(self, interaction: discord.Interaction, enable: bool | None = None):
         if enable is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
-            message_mod = "la mitad de tiempo" if db["half_lose_timeout"] else "el timepo entero"
+            message_mod = "la mitad de tiempo" if db['half_lose_timeout'] else "el timepo entero"
             await interaction.response.send_message(f"Los retados recibiran {message_mod} cuando pierdan", ephemeral=True)
             return
 

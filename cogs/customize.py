@@ -57,15 +57,8 @@ class Customize(commands.GroupCog, name="customize"):
     @app_commands.command(name="reset", description="Restableze las frases a los valores por defecto")
     @Utility.admin_check()
     async def reset(self, interaction: discord.Interaction):
-        guild: int = interaction.guild_id
-        if database.local_db.get(guild) is None:
-            return
-
-        delete_list = ["win_message", "lose_message", "lose_penalty_message", "wrong_target"]
-        for field in delete_list:
-            await database.del_guild_database_field(guild_id=guild, field=field)
-
-        await interaction.response.send_message(f"Se han reseteado los mensajes del bot", ephemeral=True)
+        guild_id: int = interaction.guild_id
+        await database.del_guild_database(guild_id)
 
 
 async def setup(bot: commands.bot):
