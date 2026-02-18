@@ -87,8 +87,8 @@ class Rulet(commands.Cog):
             Utility.users_status[key] = {}
 
         try:
-            del Utility.users_status[key]["streak"]
             del Utility.users_status[key]["streak_expiates"]
+            del Utility.users_status[key]["streak"]
         except KeyError:
             pass
 
