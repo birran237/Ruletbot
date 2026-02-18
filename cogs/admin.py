@@ -43,11 +43,13 @@ class Admin(commands.Cog):
     async def info(self, interaction: discord.Interaction):
         db = await database.get_from_database(interaction.guild.id)
         message: str = f"""Solo puede ser modificada por usuarios con permisos de administrador
+        
 **/set**
 - **Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
 - **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
 - **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
 - **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}
+
 **/customize**
 - **Mensaje de victoria:** {db['win_message']}
 - **Mensaje de victoria con racha:** {db['win_streak_message']}
