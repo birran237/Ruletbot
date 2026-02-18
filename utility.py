@@ -32,7 +32,7 @@ def create_logger():
 class Utility:
     director_guild = None
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
-    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until"],int]] = {} #(guild_id, member_id) -> {}
+    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak"],int]] = {} #(guild_id, member_id) -> {}
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
@@ -122,7 +122,8 @@ class Utility:
             mapper['u'] = target.mention
         if victim is not None:
             key: tuple[int, int] = (victim.guild.id, victim.id)
-            timeout_until = Utility.users_status[key].get("timeout_until",time())
+            user_status = Utility.users_status.get(key, {})
+            timeout_until = user_status.get("timeout_until",time())
             mapper['t'] = f"<t:{timeout_until}:R>"
 
         return Template(message).safe_substitute(mapper)

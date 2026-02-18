@@ -69,6 +69,8 @@ class Bot(commands.Bot):
     @staticmethod
     async def on_guild_remove(guild):
         await database.del_guild_database(guild.id)
+        if guild.id in Utility.disabled_servers:
+            del Utility.disabled_servers[guild.id]
         log.debug(f'Guild {guild.name} has been deleted')
 
     @staticmethod
@@ -102,8 +104,14 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta <t:{error.expire_at}:R>", ephemeral=True)
         return
 
+    error_message = await get_command_error(interaction, error)
+    log.error(error_message)
+    if bot.director_guild is not None:
+        await bot.director_guild.system_channel.send(error_message)
+
+async def get_command_error(interaction: discord.Interaction, error: app_commands.errors) -> str:
     if interaction is None:
-        return
+        return f"There was an error without an interaction"
     def param_string(parameter, namespace: discord.Interaction.namespace) -> str:
         if namespace is None:
             return f'{parameter}: Unknown'
@@ -113,13 +121,9 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message("Ha ocurrido un error inesperado, vuelve a intentarlo más tarde",ephemeral=True)
         parameters = [param_string(i.name, interaction.namespace) for i in interaction.command.parameters] if hasattr(interaction.command, 'parameters') else []
     except Exception as mssg_error:
-        message = f"There was an error and in its handling this error ocurred: **{mssg_error}**"
-    else:
-        message = f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
+        return f"There was an error and in its handling this error ocurred: **{mssg_error}**"
 
-    log.error(message)
-    if bot.director_guild is not None:
-        await bot.director_guild.system_channel.send(message)
+    return f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 
 bot = Bot()
 bot.tree.on_error = error_handler

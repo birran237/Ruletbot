@@ -40,40 +40,57 @@ class Rulet(commands.Cog):
         if timeout_task is not None:
             await timeout_task
 
-    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member, asyncio.Task | None]:
+    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, asyncio.Task | None]:
         db = await database.get_from_database(interaction.guild.id)
+        key: tuple[int, int] = (interaction.guild.id, interaction.user.id)
+        if key not in Utility.users_status:
+            Utility.users_status[key] = {}
 
         if interaction.user.id == target.id or target.bot:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
-            return db.wrong_target, interaction.user, task
+            return db["wrong_target"], interaction.user, task
 
         higher_role = target.top_role > interaction.guild.self_role
-        if (target.guild_permissions.administrator or higher_role) and not db.annoy_admins:
-            return f"{target.display_name} es un administrador y no le puedes retar",interaction.user, None
+        if (target.guild_permissions.administrator or higher_role) and not db["annoy_admins"]:
+            return f"{target.display_name} es un administrador y no le puedes retar", None, None
 
-        if bool(randint(0, 1)):
-            multiplier = 0.5 if db.half_lose_timeout else 1
+
+        if Utility.users_status[key].get("streak_expiates",0) > time():
+            Utility.users_status[key]["streak"] = 0
+
+        extra_chance:float = max(Utility.users_status[key].get("streak",0) * 0.05,0.4)
+        if randint(0, 1) + extra_chance > 0.5:
+            Utility.users_status[key]["streak"] += 1
+            Utility.users_status[key]["streak_expiates"] = int(time()) + 300
+            multiplier = 0.5 if db["half_lose_timeout"] else 1
+            message = db["win_message"] if extra_chance < 3 else db["win_streak_message"]
             task = await self.timeout(interaction, target, db, multiplier)
-            return db.win_message, target, task
+            return message, target, task
 
         if target.voice and not interaction.user.voice:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
             await self.set_user_cooldown(interaction, db=db, multiplier=5)
-            return db.lose_penalty_message, interaction.user, task
+            return db["lose_penalty_message"], interaction.user, task
 
         task = await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
-        return db.lose_message, interaction.user, task
+        return db["lose_message"], interaction.user, task
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.GuildConfig, multiplier: int = 1) -> asyncio.Task:
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> asyncio.Task:
         timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
-        seconds: int = db.timeout_seconds
+        seconds: int = db["timeout_seconds"]
 
         key: tuple[int, int] = (user.guild.id, user.id)
         if key not in Utility.users_status:
             Utility.users_status[key] = {}
+
+        try:
+            del Utility.users_status[key]["streak"]
+            del Utility.users_status[key]["streak_expiates"]
+        except KeyError:
+            pass
 
         if timeout_impossible or seconds == 0:
             new_value = max(Utility.users_status[key].get("timeout_until", 0), int(time()))
@@ -92,9 +109,9 @@ class Rulet(commands.Cog):
         return task
 
     @staticmethod
-    async def set_user_cooldown(interaction: discord.Interaction, db: database.GuildConfig, multiplier: int = 1) -> None:
+    async def set_user_cooldown(interaction: discord.Interaction, db: database.db_dict, multiplier: int = 1) -> None:
         key: tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        total_time: int = db.timeout_seconds + (db.lose_cooldown * multiplier)
+        total_time: int = db["timeout_seconds"] + (db["lose_cooldown"] * multiplier)
         available_on: int = int(total_time + time())
 
         if key not in Utility.users_status:
