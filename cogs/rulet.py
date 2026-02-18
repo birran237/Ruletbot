@@ -58,7 +58,7 @@ class Rulet(commands.Cog):
         if Utility.users_status[key].get("streak_expiates",0) > time():
             Utility.users_status[key]["streak"] = 0
 
-        extra_chance:float = max(Utility.users_status[key].get("streak",0) * 0.05,0.4)
+        extra_chance:float = min(Utility.users_status[key].get("streak",0) * 0.05,0.4)
         if randint(0, 1) + extra_chance > 0.5:
             Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak_expiates",0) + 1
             Utility.users_status[key]["streak_expiates"] = int(time()) + 300
