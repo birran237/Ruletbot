@@ -34,7 +34,7 @@ class Rulet(commands.Cog):
     @Utility.cooldown_check()
     async def rulet_command(self, interaction: discord.Interaction, objetivo: discord.Member):
         message, loser, timeout_task = await self.tirar_rulet(interaction, objetivo)
-        ephemeral = isinstance(timeout_task, asyncio.Task)
+        ephemeral = loser is None
         formated_message = Utility.format_message(message, author=interaction.user, target=objetivo, victim=loser)
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
         if timeout_task is not None:
