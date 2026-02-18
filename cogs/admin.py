@@ -54,7 +54,7 @@ class Admin(commands.Cog):
 - **Mensaje de derrota:** {db['lose_message']}
 - **Mensaje de derrota con penalización:** {db['lose_penalty_message']}
 - **Mensaje de objetivo inválido:** {db['wrong_target']}"""
-        embed = discord.Embed(title="Configuración actual",description=message,color=discord.Color.dark_blue())
+        embed = discord.Embed(title="Configuración actual",description=Utility.format_message(message),color=discord.Color.dark_blue())
         embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
