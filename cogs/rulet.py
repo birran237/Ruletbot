@@ -55,15 +55,15 @@ class Rulet(commands.Cog):
             return f"{target.display_name} es un administrador y no le puedes retar", None, None
 
 
-        if Utility.users_status[key].get("streak_expiates",0) > time():
+        if Utility.users_status[key].get("streak_expiates",0) < time():
             Utility.users_status[key]["streak"] = 0
 
-        extra_chance:float = min(Utility.users_status[key].get("streak",0) * 0.05,0.4)
+        extra_chance:float = min(Utility.users_status[key].get("streak", 0) * 0.05, 0.4)
         if randint(0, 1) + extra_chance > 0.5:
-            Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak_expiates",0) + 1
+            Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak_expiates", 0) + 1
             Utility.users_status[key]["streak_expiates"] = int(time()) + 300
             multiplier = 0.5 if db['half_lose_timeout'] else 1
-            message = db['win_message'] if extra_chance < 0.15 else db['win_streak_message']
+            message = db['win_message'] if extra_chance < 0.1 else db['win_streak_message']
             task = await self.timeout(interaction, target, db, multiplier)
             return message, target, task
 
