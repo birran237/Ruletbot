@@ -63,7 +63,7 @@ class Rulet(commands.Cog):
             Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak_expiates",0) + 1
             Utility.users_status[key]["streak_expiates"] = int(time()) + 300
             multiplier = 0.5 if db['half_lose_timeout'] else 1
-            message = db['win_message'] if extra_chance < 3 else db['win_streak_message']
+            message = db['win_message'] if extra_chance < 0.15 else db['win_streak_message']
             task = await self.timeout(interaction, target, db, multiplier)
             return message, target, task
 
