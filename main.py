@@ -84,7 +84,8 @@ class Bot(commands.Bot):
         key: tuple[int, int] = (member.guild.id, member.id)
         if key not in Utility.users_status:
             return
-
+        if "timeout_until" not in Utility.users_status[key]:
+            return
         remaining: float = Utility.users_status[key].get("timeout_until", 0) - time()
         if remaining <= 0:
             del Utility.users_status[key]["timeout_until"]

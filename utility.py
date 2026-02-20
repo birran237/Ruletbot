@@ -104,11 +104,15 @@ class Utility:
             if cooldown_until == 0:
                 return None
 
-            if cooldown_until <= time():
+            if cooldown_until > time():
+                return cooldown_until
+            try:
                 del cls.users_status[key]["cooldown_until"]
                 del cls.users_status[key]["timeout_until"]
-                return None
-            return cooldown_until
+            except KeyError:
+                pass
+
+            return None
 
         return app_commands.check(predicate)
 
