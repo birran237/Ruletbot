@@ -36,11 +36,11 @@ class Utility:
 
     class AdminError(app_commands.CheckFailure): pass
     class GuildCooldown(app_commands.CheckFailure):
-        def __init__(self, expire_at: float) -> None:
-            self.expire_at: float = expire_at
+        def __init__(self, expire_at: int) -> None:
+            self.expire_at: int = expire_at
     class UserCooldown(app_commands.CheckFailure):
-        def __init__(self, expire_at: float) -> None:
-            self.expire_at: float = expire_at
+        def __init__(self, expire_at: int) -> None:
+            self.expire_at: int = expire_at
 
     @staticmethod
     def format_seconds(seconds: int | float) -> str:
@@ -87,7 +87,7 @@ class Utility:
                 raise cls.UserCooldown(expire_at=expire_at)
             return True
 
-        def get_guild_status(interaction: discord.Interaction) -> float | None:
+        def get_guild_status(interaction: discord.Interaction) -> int | None:
             member = interaction.user
             expire_at = cls.disabled_servers.get(member.guild.id)
             timed_out_until = interaction.guild.me.timed_out_until
@@ -105,9 +105,9 @@ class Utility:
                     cls.disabled_servers.pop(member.guild.id)
                 except KeyError: pass
                 return None
-            return time_value
+            return int(time_value)
 
-        def get_user_status(member: discord.Member) -> float | None:
+        def get_user_status(member: discord.Member) -> int | None:
             key: tuple[int, int] = (member.guild.id, member.id)
             if key not in cls.users_status:
                 return None
@@ -116,7 +116,7 @@ class Utility:
                 return None
 
             if cooldown_until > time():
-                return cooldown_until
+                return int(cooldown_until)
             try:
                 del cls.users_status[key]["cooldown_until"]
                 del cls.users_status[key]["timeout_until"]
