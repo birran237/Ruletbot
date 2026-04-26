@@ -90,12 +90,20 @@ class Utility:
         def get_guild_status(interaction: discord.Interaction) -> float | None:
             member = interaction.user
             expire_at = cls.disabled_servers.get(member.guild.id)
-            timed_out_until = interaction.guild.me.timed_out_until.timestamp()
-            time_value = max(timed_out_until, expire_at)
-            if time_value is None:
+            timed_out_until = interaction.guild.me.timed_out_until
+
+            if expire_at is None and timed_out_until is None:
                 return None
+            if expire_at is None:
+                time_value = timed_out_until.timestamp()
+            elif timed_out_until is None:
+                time_value = expire_at
+            else:
+                time_value = max(timed_out_until.timestamp(), expire_at)
             if time_value <= time():
-                cls.disabled_servers.pop(member.guild.id)
+                try:
+                    cls.disabled_servers.pop(member.guild.id)
+                except KeyError: pass
                 return None
             return time_value
 

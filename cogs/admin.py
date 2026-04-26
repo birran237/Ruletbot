@@ -16,18 +16,28 @@ class Admin(commands.Cog):
     @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
     @Utility.admin_check()
     async def disable(self, interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080] | None = None):
-        timeouted_until = Utility.disabled_servers.get(interaction.guild.id, 0)
-        remaining_time = Utility.disabled_servers.get(interaction.guild.id, 0) - time()
+        disabled_until = Utility.disabled_servers.get(interaction.guild.id, 0)
+        timed_out_until = interaction.guild.me.timed_out_until
+        if disabled_until is None:
+            remaining_time = timed_out_until.timestamp() - time()
+        elif timed_out_until is None:
+            remaining_time = disabled_until - time()
+        else:
+            remaining_time = max(timed_out_until.timestamp(), disabled_until) - time()
         if minutes is None:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot está habilitado", ephemeral=True)
                 return
-            await interaction.response.send_message(f"El bot no funcionará hasta <t:{timeouted_until}:R>", ephemeral=True)
+            await interaction.response.send_message(f"El bot no funcionará hasta <t:{disabled_until}:R>", ephemeral=True)
             return
 
         if minutes == 0:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot ya estaba habilitado habilitado", ephemeral=True)
+                return
+
+            if timed_out_until is not None and timed_out_until.timestamp() < time():
+                await interaction.response.send_message(f"El bot ha sido aislado temporalmente, desaislalo para que vuelva a funcionar", ephemeral=True)
                 return
 
             Utility.disabled_servers.pop(interaction.guild_id)
