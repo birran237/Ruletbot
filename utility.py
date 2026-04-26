@@ -78,7 +78,7 @@ class Utility:
     @classmethod
     def cooldown_check(cls):
         def predicate (interaction: discord.Interaction) -> bool:
-            expire_at = get_guild_status(interaction.user)
+            expire_at = get_guild_status(interaction)
             if expire_at is not None:
                 raise cls.GuildCooldown(expire_at=expire_at)
 
@@ -87,14 +87,17 @@ class Utility:
                 raise cls.UserCooldown(expire_at=expire_at)
             return True
 
-        def get_guild_status(member: discord.Member) -> float | None:
+        def get_guild_status(interaction: discord.Interaction) -> float | None:
+            member = interaction.user
             expire_at = cls.disabled_servers.get(member.guild.id)
-            if expire_at is None:
+            timed_out_until = interaction.guild.me.timed_out_until.timestamp()
+            time_value = max(timed_out_until, expire_at)
+            if time_value is None:
                 return None
-            if expire_at <= time():
+            if time_value <= time():
                 cls.disabled_servers.pop(member.guild.id)
                 return None
-            return expire_at
+            return time_value
 
         def get_user_status(member: discord.Member) -> float | None:
             key: tuple[int, int] = (member.guild.id, member.id)
