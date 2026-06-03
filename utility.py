@@ -30,7 +30,6 @@ def create_logger():
 
 
 class Utility:
-    director_guild = None
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
     users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak"],int]] = {} #(guild_id, member_id) -> {}
 
@@ -38,8 +37,9 @@ class Utility:
         def __init__(self, expire_at: int) -> None:
             self.expire_at: int = expire_at
     class UserCooldown(app_commands.CheckFailure):
-        def __init__(self, expire_at: int) -> None:
+        def __init__(self, expire_at: int, extra_cooldown: bool) -> None:
             self.expire_at: int = expire_at
+            self.extra_cooldown: bool = extra_cooldown
 
     @staticmethod
     def format_seconds(seconds: int | float) -> str:
@@ -63,52 +63,52 @@ class Utility:
     @classmethod
     def cooldown_check(cls):
         def predicate (interaction: discord.Interaction) -> bool:
-            expire_at = get_guild_status(interaction)
-            if expire_at is not None:
-                raise cls.GuildCooldown(expire_at=expire_at)
-
-            expire_at = get_user_status(interaction.user)
-            if expire_at is not None:
-                raise cls.UserCooldown(expire_at=expire_at)
+            get_guild_status(interaction)
+            get_user_status(interaction.user)
             return True
 
-        def get_guild_status(interaction: discord.Interaction) -> int | None:
+        def get_guild_status(interaction: discord.Interaction) -> None:
             member = interaction.user
             expire_at = cls.disabled_servers.get(member.guild.id)
             timed_out_until = interaction.guild.me.timed_out_until
 
             if expire_at is None and timed_out_until is None:
-                return None
+                return
             if expire_at is None:
                 time_value = timed_out_until.timestamp()
             elif timed_out_until is None:
                 time_value = expire_at
             else:
                 time_value = max(timed_out_until.timestamp(), expire_at)
-            if time_value <= time():
-                try:
-                    cls.disabled_servers.pop(member.guild.id)
-                except KeyError: pass
-                return None
-            return int(time_value)
+            if time_value > time():
+                raise cls.GuildCooldown(expire_at=int(time_value))
+            try:
+                cls.disabled_servers.pop(member.guild.id)
+            except KeyError:
+                pass
+            return
 
-        def get_user_status(member: discord.Member) -> int | None:
+
+        def get_user_status(member: discord.Member) -> None:
             key: tuple[int, int] = (member.guild.id, member.id)
             if key not in cls.users_status:
-                return None
-            cooldown_until = max(cls.users_status[key].get("cooldown_until",0), cls.users_status[key].get("timeout_until",0))
-            if cooldown_until == 0:
-                return None
+                return
+            cooldown_until = cls.users_status[key].get("cooldown_until",0)
+            timeout_until = cls.users_status[key].get("timeout_until",0)
+            extra_cooldown: bool = cooldown_until > timeout_until
+            disabled_until = max(cooldown_until, timeout_until)
+            if disabled_until == 0:
+                return
 
-            if cooldown_until > time():
-                return int(cooldown_until)
+            if disabled_until > time():
+                raise cls.UserCooldown(expire_at=int(disabled_until),extra_cooldown=extra_cooldown)
             try:
                 del cls.users_status[key]["cooldown_until"]
                 del cls.users_status[key]["timeout_until"]
             except KeyError:
                 pass
 
-            return None
+            return
 
         return app_commands.check(predicate)
 

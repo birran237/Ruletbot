@@ -62,9 +62,8 @@ class Rulet(commands.Cog):
         if randint(0, 1) + extra_chance > 0.5:
             Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak", 0) + 1
             Utility.users_status[key]["streak_expiates"] = int(time()) + 300
-            multiplier = 0.5 if db['half_lose_timeout'] else 1
             message = db['win_message'] if extra_chance < 0.1 else db['win_streak_message']
-            task = await self.timeout(interaction, target, db, multiplier)
+            task = await self.timeout(interaction, target, db)
             return message, target, task
 
         if target.voice and not interaction.user.voice:

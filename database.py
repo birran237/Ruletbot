@@ -12,14 +12,13 @@ log = logging.getLogger(__name__)
 
 load_dotenv()
 
-db_fields = Literal["timeout_seconds","lose_cooldown","annoy_admins","half_lose_timeout","win_message","win_streak_message","lose_message","lose_penalty_message","wrong_target"]
+db_fields = Literal["timeout_seconds","lose_cooldown","annoy_admins","win_message","win_streak_message","lose_message","lose_penalty_message","wrong_target"]
 db_dict = dict[db_fields, int | bool | str]
 local_db: OrderedDict[int, db_dict] = OrderedDict()
 defaults:db_dict = {
     "timeout_seconds": 120,
     "lose_cooldown": 180,
     "annoy_admins": False,
-    "half_lose_timeout": False,
     "win_message": "${k} ha retado a un duelo a ${u} y ha ganado",
     "win_streak_message": "${k} ha retado a un duelo a ${u} y ha ganado con una racha de $r",
     "lose_message": "${k} ha retado a un duelo a ${u} y ha perdido",

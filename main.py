@@ -64,7 +64,6 @@ class Bot(commands.Bot):
         await self.tree.sync(guild=self.director_guild)
         log.info(f'Guild {self.director_guild.name} has been synced')
         await self.director_guild.system_channel.send(f"The bot successfully reloaded/updated with {len(database.local_db)} local server(s), {len(Utility.disabled_servers)} disabled server(s) and {len(Utility.users_status)} disabled user(s)")
-        Utility.director_guild = self.director_guild
 
     @staticmethod
     async def on_guild_remove(guild):
@@ -93,16 +92,19 @@ class Bot(commands.Bot):
         await member.move_to(channel=None, reason="Ha perdido")
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
-    if isinstance(error, app_commands.CheckFailure):
-        await interaction.response.send_message("Para ejectuar este comando necesitas como mínimo poder aislar temporalmente a miembros", ephemeral=True)
-        return
-
     if isinstance(error, Utility.GuildCooldown):
         await interaction.response.send_message(f"He sido deshabilitado por los administradores hasta <t:{error.expire_at}:R>", ephemeral=True)
         return
 
     if isinstance(error, Utility.UserCooldown):
-        await interaction.response.send_message(f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta <t:{error.expire_at}:R>", ephemeral=True)
+        message = f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta <t:{error.expire_at}:R>"
+        if error.expire_at:
+            message += " (cooldown extra por retar a una persona y perder o por retar a alguien dentro de llamada estando fuera de un canal de voz)"
+        await interaction.response.send_message(message, ephemeral=True)
+        return
+
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("Para ejectuar este comando necesitas poder aislar temporalmente a miembros", ephemeral=True)
         return
 
     error_message = await get_command_error(interaction, error)
