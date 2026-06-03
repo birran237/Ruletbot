@@ -17,7 +17,7 @@ db_dict = dict[db_fields, int | bool | str]
 local_db: OrderedDict[int, db_dict] = OrderedDict()
 defaults:db_dict = {
     "timeout_seconds": 120,
-    "lose_cooldown": 180,
+    "lose_cooldown": 600,
     "annoy_admins": False,
     "win_message": "${k} ha retado a un duelo a ${u} y ha ganado",
     "win_streak_message": "${k} ha retado a un duelo a ${u} y ha ganado con una racha de $r",
