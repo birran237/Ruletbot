@@ -9,12 +9,15 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    #every user must at least have moderate_members permissions
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.guild_permissions.moderate_members
 
-    admin_group = app_commands.Group(name="set", description="...")
+    admin_group = app_commands.Group(name="set", description="...",default_permissions=discord.Permissions.administrator)
 
+    @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
     @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
-    @Utility.admin_check()
     async def disable(self, interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080] | None = None):
         disabled_until = Utility.disabled_servers.get(interaction.guild.id, 0)
         timed_out_until = interaction.guild.me.timed_out_until
@@ -48,31 +51,29 @@ class Admin(commands.Cog):
         Utility.disabled_servers[interaction.guild_id] = expire_at
         await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
 
-    @app_commands.command(name="info", description="Mostrar toda la configuración actual")
-    @Utility.admin_check()
-    async def info(self, interaction: discord.Interaction):
-        db = await database.get_from_database(interaction.guild.id)
-        message: str = f"""Solo puede ser modificada por usuarios con permisos de administrador
-        
-**/set**
-- **Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
-- **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
-- **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
-- **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}
-
-**/customize**
-- **Mensaje de victoria:** {db['win_message']}
-- **Mensaje de victoria con racha:** {db['win_streak_message']}
-- **Mensaje de derrota:** {db['lose_message']}
-- **Mensaje de derrota con penalización:** {db['lose_penalty_message']}
-- **Mensaje de objetivo inválido:** {db['wrong_target']}"""
-        embed = discord.Embed(title="Configuración actual",description=Utility.format_message(message),color=discord.Color.dark_blue())
-        embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+#     @app_commands.command(name="info", description="Mostrar toda la configuración actual")
+#     async def info(self, interaction: discord.Interaction):
+#         db = await database.get_from_database(interaction.guild.id)
+#         message: str = f"""Solo puede ser modificada por usuarios con permisos de administrador
+#
+# **/set**
+# - **Tiempo de timeout:** {Utility.format_seconds(db['timeout_seconds'])}
+# - **Cooldown extra de derrota:** {Utility.format_seconds(db['lose_cooldown'])}
+# - **Afectar a administradores:** {"Sí" if db['annoy_admins'] else "No"}
+# - **Mitad de castigo para los que son retados:** {"Sí" if db['half_lose_timeout'] else "No"}
+#
+# **/customize**
+# - **Mensaje de victoria:** {db['win_message']}
+# - **Mensaje de victoria con racha:** {db['win_streak_message']}
+# - **Mensaje de derrota:** {db['lose_message']}
+# - **Mensaje de derrota con penalización:** {db['lose_penalty_message']}
+# - **Mensaje de objetivo inválido:** {db['wrong_target']}"""
+#         embed = discord.Embed(title="Configuración actual",description=Utility.format_message(message),color=discord.Color.dark_blue())
+#         embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url)
+#         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @admin_group.command(name="timeout", description="Configura los segundos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(seconds="Cantidad de segundos (1–600), dejar a 0 solo para expulsar de vc")
-    @Utility.admin_check()
     async def set_timeout(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 600] | None = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
@@ -84,7 +85,6 @@ class Admin(commands.Cog):
 
     @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(seconds="Cantidad de segundos (0–900), solo afectará al que reta cuando pierda, no al retado")
-    @Utility.admin_check()
     async def set_lose_cooldown(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 900] | None = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
@@ -96,7 +96,6 @@ class Admin(commands.Cog):
 
 
     @admin_group.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores al del bot (deja en blanco para ver ajustes actuales)")
-    @Utility.admin_check()
     async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool | None = None):
         if affect_admins is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
@@ -110,7 +109,6 @@ class Admin(commands.Cog):
 
 
     @admin_group.command(name="half_lose_timeout", description="Reducir a la mitad el tiempo de las derrotas (solo afecta a los retados)")
-    @Utility.admin_check()
     async def set_half_lose_timeout(self, interaction: discord.Interaction, enable: bool | None = None):
         if enable is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
@@ -123,7 +121,6 @@ class Admin(commands.Cog):
         await interaction.response.send_message(f"A partir de ahora los retados recibiran {message_mod} cuando pierdan", ephemeral=True)
 
     @admin_group.command(name="default", description="Devuelve los ajustes del bot a valores por defecto")
-    @Utility.admin_check()
     async def set_default(self, interaction: discord.Interaction):
         await database.del_guild_database(guild_id=interaction.guild_id)
         await interaction.response.send_message(f"Se han resetado los ajustes del bot", ephemeral=True)

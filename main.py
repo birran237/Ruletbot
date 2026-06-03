@@ -93,8 +93,8 @@ class Bot(commands.Bot):
         await member.move_to(channel=None, reason="Ha perdido")
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
-    if isinstance(error, Utility.AdminError):
-        await interaction.response.send_message("Para ejectuar este comando necesitas permisos de administrador", ephemeral=True)
+    if isinstance(error, app_commands.CheckFailure):
+        await interaction.response.send_message("Para ejectuar este comando necesitas como mínimo poder aislar temporalmente a miembros", ephemeral=True)
         return
 
     if isinstance(error, Utility.GuildCooldown):
