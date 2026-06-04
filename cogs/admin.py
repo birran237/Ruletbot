@@ -13,7 +13,7 @@ class Admin(commands.Cog):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return interaction.user.guild_permissions.moderate_members
 
-    admin_group = app_commands.Group(name="set", description="...",default_permissions=discord.Permissions(administrator=True))
+    admin_group = app_commands.Group(name="set", description="Modificar ajustes del bot",default_permissions=discord.Permissions(administrator=True))
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")

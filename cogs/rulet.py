@@ -51,7 +51,7 @@ class Rulet(commands.Cog):
             return db['wrong_target'], interaction.user, task
 
         higher_role = target.top_role > interaction.guild.self_role
-        if (target.guild_permissions.administrator or higher_role) and not db['annoy_admins']:
+        if (target.resolved_permissions.administrator or higher_role) and not db['annoy_admins']:
             return f"{target.display_name} es un administrador y no le puedes retar", None, None
 
 
@@ -78,7 +78,7 @@ class Rulet(commands.Cog):
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> asyncio.Task:
-        timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.guild_permissions.administrator
+        timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator
         seconds: int = db['timeout_seconds']
 
         key: tuple[int, int] = (user.guild.id, user.id)

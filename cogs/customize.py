@@ -5,7 +5,7 @@ from utility import Utility
 import database
 
 @app_commands.default_permissions(administrator=True)
-class Customize(commands.GroupCog, name="customize"):
+class Customize(commands.GroupCog, name="customize", description="Personalizar mensajes del bot"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -35,6 +35,7 @@ class Customize(commands.GroupCog, name="customize"):
     async def win_streak(self, interaction: discord.Interaction, message: str | None = None):
         return_message = await self.message_customization(message=message, guild_id=interaction.guild.id, field="win_streak_message")
         await interaction.response.send_message(return_message, ephemeral=True)
+
     @app_commands.command(name="lose",description="Cambia el mensaje de derrota de la ruleta (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
     async def lose(self, interaction: discord.Interaction, message: str | None = None):
