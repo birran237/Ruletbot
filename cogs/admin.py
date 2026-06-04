@@ -62,7 +62,7 @@ class Admin(commands.Cog):
         await database.save_to_database(guild_id=interaction.guild_id, field="timeout_seconds", data=seconds)
         await interaction.response.send_message(f"Tiempo de rulet configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
 
-    @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder (deja en blanco para ver ajustes actuales)")
+    @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder. El tiempo empieza después que se le acabe el timeout")
     @app_commands.describe(minutes="Cantidad de minutos (0–10800), solo afectará al que reta cuando pierda, no al retado")
     async def set_lose_cooldown(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 0, 10800] | None = None):
         seconds = minutes * 60
