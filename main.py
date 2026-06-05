@@ -16,11 +16,6 @@ token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')
 
-REQUIRED_PERMS = (
-    "send_messages",
-    "embed_links",
-    "attach_files",
-)
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -137,10 +132,15 @@ async def get_command_error(interaction: discord.Interaction, error: app_command
 
 async def check_bot_permissions(interaction: discord.Interaction) -> bool:
     perms = interaction.channel.permissions_for(interaction.guild.me)
-    missing = [perm.replace("_", " ").title() for perm in REQUIRED_PERMS if not getattr(perms, perm)]
-
+    missing = []
+    if not perms.send_messages:
+        missing.append('Enviar mensajes')
+    if not perms.embed_links:
+        missing.append('Aislar temporalmente a miembros')
+    if not perms.view_channel:
+        missing.append('Mover miembros')
     if missing:
-        await interaction.response.send_message(f"**No tengo suficientes permisos para funcionar correctamente, pide a un administrador que me de los siguientes permisos:\n{', '.join(missing)}",ephemeral=True)
+        await interaction.response.send_message(f"**No tengo suficientes permisos para funcionar correctamente,** pide a un administrador que me de los siguientes permisos:\n{', '.join(missing)}",ephemeral=True)
         raise Utility.MissingBotPermissions
     return True
 
