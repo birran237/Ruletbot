@@ -130,23 +130,8 @@ async def get_command_error(interaction: discord.Interaction, error: app_command
 
     return f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 
-async def check_bot_permissions(interaction: discord.Interaction) -> bool:
-    perms = interaction.guild.me.resolved_permissions
-    missing = []
-    if not perms.send_messages:
-        missing.append('Enviar mensajes')
-    if not perms.moderate_members:
-        missing.append('Aislar temporalmente a miembros')
-    if not perms.move_members:
-        missing.append('Mover miembros')
-    if missing:
-        await interaction.response.send_message(f"**No tengo suficientes permisos para funcionar correctamente,** pide a un administrador que me de los siguientes permisos:\n{', '.join(missing)}",ephemeral=True)
-        raise Utility.MissingBotPermissions
-    return True
-
 bot = Bot()
 bot.tree.on_error = error_handler
-bot.tree.interaction_check = check_bot_permissions
 
 @app_commands.command(description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
