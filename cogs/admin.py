@@ -17,24 +17,26 @@ class Admin(commands.Cog):
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
-    @app_commands.describe(minutes="Cantidad de minutos (deja en 0 para habilitar el bot instantaniamente)")
-    async def disable(self, interaction: discord.Interaction, minutes: app_commands.Range[float, 0, 10080] | None = None):
+    async def disable(self, interaction: discord.Interaction, minutos: app_commands.Range[float, -1, 60] = -1, horas: app_commands.Range[float, 0, 24] = 0, dias: app_commands.Range[float, 0, 30] = 0):
         disabled_until = Utility.disabled_servers.get(interaction.guild.id, 0)
         timed_out_until = interaction.guild.me.timed_out_until
+
         if disabled_until is None:
             remaining_time = timed_out_until.timestamp() - time()
         elif timed_out_until is None:
             remaining_time = disabled_until - time()
         else:
             remaining_time = max(timed_out_until.timestamp(), disabled_until) - time()
-        if minutes is None:
+
+        total_seconds = minutos*60 + horas*60*60 + dias*60*60*24
+        if total_seconds < 0:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot está habilitado", ephemeral=True)
                 return
             await interaction.response.send_message(f"El bot no funcionará hasta <t:{disabled_until}:R>", ephemeral=True)
             return
 
-        if minutes == 0:
+        if total_seconds == 0:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot ya estaba habilitado habilitado", ephemeral=True)
                 return
@@ -47,12 +49,12 @@ class Admin(commands.Cog):
             await interaction.response.send_message(f"El bot vuelve a estar habilitado", ephemeral=True)
             return
 
-        expire_at = int(time() + (minutes * 60))
+        expire_at = int(time() + total_seconds)
         Utility.disabled_servers[interaction.guild_id] = expire_at
         await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
 
     @admin_group.command(name="timeout", description="Configura los segundos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
-    @app_commands.describe(seconds="Cantidad de segundos (1–600), dejar a 0 solo para expulsar de vc")
+    @app_commands.describe(seconds="Cantidad de segundos (0–600), dejar a 0 solo para expulsar de vc")
     async def set_timeout(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 600] | None = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
@@ -63,11 +65,10 @@ class Admin(commands.Cog):
         await interaction.response.send_message(f"Tiempo de rulet configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
 
     @admin_group.command(name="lose_cooldown", description="Cooldown del comando para un usuario después de perder. El tiempo empieza después que se le acabe el timeout")
-    @app_commands.describe(minutes="Cantidad de minutos (0–10800), solo afectará al que reta cuando pierda, no al retado")
-    async def set_lose_cooldown(self, interaction: discord.Interaction, minutes: app_commands.Range[int, 0, 10800] | None = None):
-        seconds = minutes * 60
+    async def set_lose_cooldown(self, interaction: discord.Interaction, minutos: app_commands.Range[float, -1, 60] = -1, horas: app_commands.Range[float, 0, 24] = 0, dias: app_commands.Range[float, 0, 7] = 0):
+        seconds = int(minutos*60 + horas*60*60 + dias*60*60*24)
         db = await database.get_from_database(guild_id=interaction.guild_id)
-        if seconds is None:
+        if seconds < 0:
             await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db['lose_cooldown'])}", ephemeral=True)
             return
 

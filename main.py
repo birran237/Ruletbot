@@ -1,7 +1,7 @@
 from utility import Utility, Loader
 import database
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 from time import time
 import logging, os, asyncio
@@ -16,6 +16,11 @@ token = os.getenv('DISCORD_TOKEN')
 if token is None:
     raise ValueError('DISCORD_TOKEN is not set')
 
+REQUIRED_PERMS = (
+    "send_messages",
+    "embed_links",
+    "attach_files",
+)
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -44,6 +49,8 @@ class Bot(commands.Bot):
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
         await self.loader_coro
+        if not purge_expired_variables.is_running():
+            purge_expired_variables.start()
 
         try:
             director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
@@ -128,8 +135,18 @@ async def get_command_error(interaction: discord.Interaction, error: app_command
 
     return f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 
+async def check_bot_permissions(interaction: discord.Interaction) -> bool:
+    perms = interaction.channel.permissions_for(interaction.guild.me)
+    missing = [perm.replace("_", " ").title() for perm in REQUIRED_PERMS if not getattr(perms, perm)]
+
+    if missing:
+        await interaction.response.send_message(f"**No tengo suficientes permisos para funcionar correctamente, pide a un administrador que me de los siguientes permisos:\n{', '.join(missing)}",ephemeral=True)
+        raise Utility.MissingBotPermissions
+    return True
+
 bot = Bot()
 bot.tree.on_error = error_handler
+bot.tree.interaction_check = check_bot_permissions
 
 @app_commands.command(description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
@@ -156,10 +173,17 @@ async def erase_local_variables(interaction: discord.Interaction, variable: Lite
 @bot.tree.command(description="Explicación sobre el funcionamiento del bot", name="help")
 async def help_command(interaction: discord.Interaction):
     db = await database.get_from_database(interaction.guild.id)
-    message = f"Al usar el comando `/rulet` con un usuario, hay un 50% de que pierdas, y un 50% de que ganes. Al ganador no le pasará nada, pero el perdedor será aislado temporalmente por `{Utility.format_seconds(db['timeout_seconds'])}`. Si TÚ retas a alguien y pierdes, no podras usar el bot por `{Utility.format_seconds(db['timeout_seconds'] + db['lose_cooldown'])}`. Se pueden aplicar penalizaciones extra por perder contra un usuario dentro de un chat de voz, estando tu fuera de uno. La configuración puede ser modificada por administradores"
+    message = f"Al usar el comando `/rulet` con un usuario, hay un 50% de que pierdas, y un 50% de que ganes. Al ganador no le pasará nada, pero el perdedor será aislado temporalmente por `{Utility.format_seconds(db['timeout_seconds'])}`. Si TÚ retas a alguien y pierdes, no podrás usar el bot por `{Utility.format_seconds(db['timeout_seconds'] + db['lose_cooldown'])}`. Se pueden aplicar penalizaciones extra por perder contra un usuario dentro de un chat de voz, estando tu fuera de uno. La configuración puede ser modificada por miembros con permiso de administrador"
     if interaction.user.resolved_permissions.administrator:
-        message += f"\n \n**Información para administradores:** podeis modificar los ajustes del bot usando `/set ...` para modificar los ajustes como el tiempo de timeout o si la ruleta puede afectar a administradores (actualmente `{'si' if db['annoy_admins'] else 'no'}`) y el comando `/customize ...` para personalizar los mensajes del bot. Por ejemplo: `/customize win $k ha retado a $u y ha ganado` (más información en la descripción del comando). También se puede usar el comando `/disable (minutos)` para desactivar el bot por un cierto tiempo (màximo 1 semana)"
+        message += f"\n \n**Información para administradores:** podeis modificar los ajustes del bot usando `/set ...` para modificar los ajustes como el tiempo de timeout o si la ruleta puede afectar a administradores (actualmente `{'si' if db['annoy_admins'] else 'no'}`) y el comando `/customize ...` para personalizar los mensajes del bot. Por ejemplo: `/customize win $k ha retado a $u y ha ganado` (más información en la descripción del comando). También se puede usar el comando `/disable (minutos)` para desactivar el bot por un cierto tiempo (màximo 1 mes)"
+    if interaction.user.resolved_permissions.administrator and not db['annoy_admins']:
+        message += f"\n \n**Importante:** ningun usuario podrá retar a alguien o con el permiso de administrador, o que en la jerarquía de roles esté por encima del rol propio del bot (no su rol màximo). Para que el bot afecte a todos use el comando `/set annoy_admins True`"
     await interaction.response.send_message(message, ephemeral=True)
+
+@tasks.loop(hours=24)
+async def purge_expired_variables():
+    Utility.disabled_servers = await Loader.purge_expired_entries(Utility.disabled_servers)
+    Utility.users_status = await Loader.purge_expired_nested_entries(Utility.users_status)
 
 if __name__ == "__main__":
     bot.run(token)

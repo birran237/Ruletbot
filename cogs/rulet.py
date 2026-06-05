@@ -52,7 +52,7 @@ class Rulet(commands.Cog):
 
         higher_role = target.top_role > interaction.guild.self_role
         if (target.resolved_permissions.administrator or higher_role) and not db['annoy_admins']:
-            return f"{target.display_name} es un administrador y no le puedes retar", None, None
+            return f"{target.display_name} es un administrador (o su rol es superior al rol del bot propio) y no le puedes retar", None, None
 
 
         if Utility.users_status[key].get("streak_expiates",0) < time():

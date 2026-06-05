@@ -33,6 +33,8 @@ class Utility:
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
     users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak"],int]] = {} #(guild_id, member_id) -> {}
 
+    class MissingBotPermissions(app_commands.CheckFailure):
+        pass
     class GuildCooldown(app_commands.CheckFailure):
         def __init__(self, expire_at: int) -> None:
             self.expire_at: int = expire_at
