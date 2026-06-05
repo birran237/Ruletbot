@@ -131,7 +131,7 @@ async def get_command_error(interaction: discord.Interaction, error: app_command
     return f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 
 async def check_bot_permissions(interaction: discord.Interaction) -> bool:
-    perms = interaction.channel.permissions_for(interaction.guild.me)
+    perms = interaction.guild.me.resolved_permissions
     missing = []
     if not perms.send_messages:
         missing.append('Enviar mensajes')
