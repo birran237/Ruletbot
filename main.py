@@ -135,9 +135,9 @@ async def check_bot_permissions(interaction: discord.Interaction) -> bool:
     missing = []
     if not perms.send_messages:
         missing.append('Enviar mensajes')
-    if not perms.embed_links:
+    if not perms.moderate_members:
         missing.append('Aislar temporalmente a miembros')
-    if not perms.view_channel:
+    if not perms.move_members:
         missing.append('Mover miembros')
     if missing:
         await interaction.response.send_message(f"**No tengo suficientes permisos para funcionar correctamente,** pide a un administrador que me de los siguientes permisos:\n{', '.join(missing)}",ephemeral=True)
