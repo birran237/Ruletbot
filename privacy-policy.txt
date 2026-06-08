@@ -1,0 +1,11 @@
+Privacy Policy for Rulet Bot
+
+This Privacy Policy governs the collection, use, and sharing of personal information by Rulet Bot, a Discord bot developed by Birran237. By using Rulet Bot, you agree to the terms of this Privacy Policy.
+
+Information We Collect:
+-Server ID and it's configuration
+-Users ID that have used the bot, the time they will be inactive and if they have any current streak (temporarily)
+
+How We Use Your Information
+Users and servers ID are used to apply correctly the configuration of the bot and the correspondent timeout of the user.
+The server ID is deleted after kicking the bot of the server, and the user info is deleted after 1 day of not using the bot
