@@ -8,6 +8,7 @@ from collections import OrderedDict
 from string import Template
 import database
 from typing import Literal, Any
+import asyncio
 
 
 def create_logger():
@@ -55,10 +56,65 @@ class Utility:
             parts.append(f"{hours}h")
         if minutes:
             parts.append(f"{minutes}m")
-        parts.append(f"{seconds}s")
+        if seconds or not parts:
+            parts.append(f"{seconds}s")
 
         return ' '.join(parts)
 
+    @staticmethod
+    def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None, victim: discord.User | discord.Member | None = None) -> str:
+        mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos*", 'r':"*n*"}
+
+        if author is not None:
+            mapper['k'] = author.display_name
+            key: tuple[int, int] = (author.guild.id, author.id)
+            try:
+                mapper['r'] = str(Utility.users_status[key].get("streak",0))
+            except KeyError:
+                mapper['r'] = 0
+        if target is not None:
+            mapper['u'] = target.mention
+        if victim is not None:
+            key: tuple[int, int] = (victim.guild.id, victim.id)
+            try:
+                timeout_until = Utility.users_status[key].get("timeout_until",time())
+            except KeyError:
+                timeout_until = time()
+            mapper['t'] = f"<t:{timeout_until}:R>"
+
+
+        return Template(message).safe_substitute(mapper)
+
+    @staticmethod
+    async def delete_expired_disabled_server(guild_id: int) -> None:
+        disabled_until = Utility.disabled_servers.get(guild_id)
+        if disabled_until is None:
+            return
+        await asyncio.sleep(disabled_until - time())
+
+        disabled_until = Utility.disabled_servers.get(guild_id)
+        if disabled_until is None:
+            return
+        if time() > disabled_until:
+            Utility.disabled_servers.pop(guild_id)
+        return
+
+    @staticmethod
+    async def delete_expired_user(guild_id: int, member_id: int) -> None:
+        key = (guild_id, member_id)
+        user_dict = Utility.users_status.get(key, {})
+        if len(user_dict) == 0:
+            return
+        max_time = max(Utility.users_status[key].values())
+        await asyncio.sleep(max_time - time())
+
+        user_dict = Utility.users_status.get(key, {})
+        if len(user_dict) == 0:
+            return
+        max_time = max(Utility.users_status[key].values())
+        if time() > max_time:
+            Utility.users_status.pop(key)
+        return
 
     @classmethod
     def cooldown_check(cls):
@@ -111,23 +167,6 @@ class Utility:
             return
 
         return app_commands.check(predicate)
-
-    @staticmethod
-    def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None, victim: discord.User | discord.Member | None = None) -> str:
-        mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos*", 'r':"*n*"}
-
-        if author is not None:
-            mapper['k'] = author.display_name
-            key: tuple[int, int] = (author.guild.id, author.id)
-            mapper['r'] = str(Utility.users_status[key].get("streak",0))
-        if target is not None:
-            mapper['u'] = target.mention
-        if victim is not None:
-            key: tuple[int, int] = (victim.guild.id, victim.id)
-            timeout_until = Utility.users_status[key].get("timeout_until",time())
-            mapper['t'] = f"<t:{timeout_until}:R>"
-
-        return Template(message).safe_substitute(mapper)
 
 class Loader:
     state_path = "state.pkl"

@@ -4,6 +4,7 @@ from discord.ext import commands
 import database
 from time import time
 from utility import Utility
+import asyncio
 
 class Admin(commands.Cog):
     def __init__(self, bot):
@@ -17,7 +18,7 @@ class Admin(commands.Cog):
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
-    async def disable(self, interaction: discord.Interaction, minutos: app_commands.Range[float, -1, 60] = -1, horas: app_commands.Range[float, 0, 24] = 0, dias: app_commands.Range[float, 0, 30] = 0):
+    async def disable(self, interaction: discord.Interaction, minutos: app_commands.Range[float, -1, 60] = -1, horas: app_commands.Range[float, -1, 24] = 0, dias: app_commands.Range[float, -1, 30] = 0):
         disabled_until = Utility.disabled_servers.get(interaction.guild.id, 0)
         timed_out_until = interaction.guild.me.timed_out_until
 
@@ -28,17 +29,19 @@ class Admin(commands.Cog):
         else:
             remaining_time = max(timed_out_until.timestamp(), disabled_until) - time()
 
-        total_seconds = minutos*60 + horas*60*60 + dias*60*60*24
-        if total_seconds < 0:
+        if minutos + horas + dias <= -3:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot está habilitado", ephemeral=True)
                 return
             await interaction.response.send_message(f"El bot no funcionará hasta <t:{disabled_until}:R>", ephemeral=True)
             return
 
+        minutos, horas, dias = max(minutos, 0), max(horas,0), max(dias, 0)
+        total_seconds = minutos * 60 + horas * 60 * 60 + dias * 60 * 60 * 24
+
         if total_seconds == 0:
             if remaining_time <= 0:
-                await interaction.response.send_message(f"El bot ya estaba habilitado habilitado", ephemeral=True)
+                await interaction.response.send_message(f"El bot ya estaba habilitado", ephemeral=True)
                 return
 
             if timed_out_until is not None and timed_out_until.timestamp() < time():
@@ -52,6 +55,7 @@ class Admin(commands.Cog):
         expire_at = int(time() + total_seconds)
         Utility.disabled_servers[interaction.guild_id] = expire_at
         await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
+        asyncio.create_task(Utility.delete_expired_disabled_server(guild_id=interaction.guild_id))
 
     @admin_group.command(name="timeout", description="Configura los segundos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(seconds="Cantidad de segundos (0–600), dejar a 0 solo para expulsar de vc")
@@ -71,6 +75,8 @@ class Admin(commands.Cog):
         if seconds < 0:
             await interaction.response.send_message(f"Ahora mismo el cooldown es de {Utility.format_seconds(db['lose_cooldown'])}", ephemeral=True)
             return
+        if minutos < 0:
+            seconds += 60
 
         await database.save_to_database(guild_id=interaction.guild_id, field="lose_cooldown", data=seconds)
         await interaction.response.send_message(f"Tiempo de cooldown configurado a {Utility.format_seconds(seconds)}", ephemeral=True)

@@ -40,6 +40,20 @@ class Bot(commands.Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
                 log.info(f'Loaded cog {filename[:-3]}')
 
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        if bot.user not in message.mentions:
+            return
+        message_to_send = f"Tus muertos a caballo"
+        if message.channel.permissions_for(message.guild.me).read_message_history:
+            await message.reply(message_to_send)
+        else:
+            await message.channel.send(message_to_send)
+        await message.author.move_to(channel=None, reason="Ha perdido")
+
+        await self.process_commands(message)
 
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
@@ -162,10 +176,10 @@ async def help_command(interaction: discord.Interaction):
     if interaction.user.resolved_permissions.administrator:
         message += f"\n \n**Información para administradores:** podeis modificar los ajustes del bot usando `/set ...` para modificar los ajustes como el tiempo de timeout o si la ruleta puede afectar a administradores (actualmente `{'si' if db['annoy_admins'] else 'no'}`) y el comando `/customize ...` para personalizar los mensajes del bot. Por ejemplo: `/customize win $k ha retado a $u y ha ganado` (más información en la descripción del comando). También se puede usar el comando `/disable (minutos)` para desactivar el bot por un cierto tiempo (màximo 1 mes)"
     if interaction.user.resolved_permissions.administrator and not db['annoy_admins']:
-        message += f"\n \n**Importante:** ningun usuario podrá retar a alguien o con el permiso de administrador, o que en la jerarquía de roles esté por encima del rol propio del bot (no su rol màximo). Para que el bot afecte a todos use el comando `/set annoy_admins True`"
+        message += f"\n \n**Importante:** ningun usuario podrá retar a alguien o con el permiso de administrador, o que su rol más alto sea superior al rol `Rulet bot`. Para que el bot afecte a todos use el comando `/set annoy_admins True`"
     await interaction.response.send_message(message, ephemeral=True)
 
-@tasks.loop(hours=24)
+@tasks.loop(hours=72)
 async def purge_expired_variables():
     Utility.disabled_servers = await Loader.purge_expired_entries(Utility.disabled_servers)
     Utility.users_status = await Loader.purge_expired_nested_entries(Utility.users_status)

@@ -19,18 +19,15 @@ class Rulet(commands.Cog):
         )
         self.bot.tree.add_command(self.rulet_ctx)
 
+        self.rulet_app = app_commands.Command(
+            name='rulet',
+            description='Retar a alguien a la rulet',
+            callback = self.rulet_command
+        )
+        self.bot.tree.add_command(self.rulet_app)
 
-    @app_commands.command(name="rulet", description="Retar a alguien a la rulet")
+
     @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
-    @Utility.cooldown_check()
-    async def rulet(self, interaction: discord.Interaction, objetivo: discord.Member):
-        message, loser, timeout_task = await self.tirar_rulet(interaction, objetivo)
-        ephemeral = loser is None
-        formated_message = Utility.format_message(message, author=interaction.user, target=objetivo, victim=loser)
-        await interaction.response.send_message(formated_message, ephemeral=ephemeral)
-        if timeout_task is not None:
-            await timeout_task
-
     @Utility.cooldown_check()
     async def rulet_command(self, interaction: discord.Interaction, objetivo: discord.Member):
         message, loser, timeout_task = await self.tirar_rulet(interaction, objetivo)
@@ -39,6 +36,8 @@ class Rulet(commands.Cog):
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
         if timeout_task is not None:
             await timeout_task
+        asyncio.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=interaction.user.id))
+        asyncio.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=objetivo.id))
 
     async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, asyncio.Task | None]:
         db = await database.get_from_database(interaction.guild.id)
@@ -52,7 +51,7 @@ class Rulet(commands.Cog):
 
         higher_role = target.top_role > interaction.guild.self_role
         if (target.resolved_permissions.administrator or higher_role) and not db['annoy_admins']:
-            return f"{target.display_name} es un administrador (o su rol es superior al rol del bot propio) y no le puedes retar", None, None
+            return f"{target.display_name} es un administrador (o su rol es superior al rol `Rulet bot`) y no le puedes retar", None, None
 
 
         if Utility.users_status[key].get("streak_expiates",0) < time():
@@ -92,8 +91,8 @@ class Rulet(commands.Cog):
             pass
 
         if timeout_impossible or seconds == 0:
-            new_value = max(Utility.users_status[key].get("timeout_until", 0), int(time()))
-            Utility.users_status[key]["timeout_until"] = new_value + (seconds * multiplier)
+            base_value = max(Utility.users_status[key].get("timeout_until", 0), int(time()))
+            Utility.users_status[key]["timeout_until"] = base_value + (seconds * multiplier)
             task = asyncio.create_task(user.move_to(channel=None, reason="Ha perdido"))
             return task
 
