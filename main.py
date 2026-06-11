@@ -40,21 +40,6 @@ class Bot(commands.Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
                 log.info(f'Loaded cog {filename[:-3]}')
 
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        if bot.user not in message.mentions:
-            return
-        message_to_send = f"Tus muertos a caballo"
-        if message.channel.permissions_for(message.guild.me).read_message_history:
-            await message.reply(message_to_send)
-        else:
-            await message.channel.send(message_to_send)
-        await message.author.move_to(channel=None, reason="Ha perdido")
-
-        await self.process_commands(message)
-
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
         await self.loader_coro
