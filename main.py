@@ -90,6 +90,9 @@ class Bot(commands.Bot):
         if remaining <= 0:
             del Utility.users_status[key]["timeout_until"]
             return
+        db = await database.get_from_database(member.guild.id)
+        if not db['annoy_admins']:
+            return
         await member.move_to(channel=None, reason="Ha perdido")
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:

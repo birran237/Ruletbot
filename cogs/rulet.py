@@ -49,10 +49,9 @@ class Rulet(commands.Cog):
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
             return db['wrong_target'], interaction.user, task
 
-        higher_role = target.top_role > interaction.guild.self_role
-        if (target.resolved_permissions.administrator or higher_role) and not db['annoy_admins']:
-            return f"{target.display_name} es un administrador (o su rol es superior al rol `Rulet bot`) y no le puedes retar", None, None
-
+        if not db['annoy_admins']:
+            message = await self.check_valid_rulet(interaction, target)
+            if message is not None: return message, None, None
 
         if Utility.users_status[key].get("streak_expiates",0) < time():
             Utility.users_status[key]["streak"] = 0
@@ -67,13 +66,24 @@ class Rulet(commands.Cog):
 
         if target.voice and not interaction.user.voice:
             task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
-            await self.set_user_cooldown(interaction, db=db, multiplier=5)
+            await self.set_user_cooldown(interaction, db=db, multiplier=3)
             return db['lose_penalty_message'], interaction.user, task
 
         task = await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
         return db['lose_message'], interaction.user, task
+
+    @staticmethod
+    async def check_valid_rulet(interaction: discord.Interaction, target: discord.Member) -> str | None:
+        higher_role_than_bot: bool = target.top_role > interaction.guild.self_role
+        higher_role_than_author: bool = target.top_role > interaction.user.top_role
+
+        if not ((target.resolved_permissions.administrator or higher_role_than_bot) and higher_role_than_author):
+            return None
+        if target.resolved_permissions.administrator:
+            return f"{target.display_name} es un administrador con un rol más alto al tuyo y no le puedes retar"
+        return f"{target.display_name} tiene un rol superior al tuyo y al rol `rulet bot` y no le puedes retar"
 
     @staticmethod
     async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> asyncio.Task:

@@ -102,8 +102,11 @@ class Utility:
     @staticmethod
     async def delete_expired_user(guild_id: int, member_id: int) -> None:
         key = (guild_id, member_id)
-        user_dict = Utility.users_status.get(key, {})
+        user_dict = Utility.users_status.get(key, None)
+        if user_dict is None:
+            return
         if len(user_dict) == 0:
+            Utility.users_status.pop(key)
             return
         max_time = max(Utility.users_status[key].values())
         await asyncio.sleep(max_time - time())
