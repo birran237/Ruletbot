@@ -195,7 +195,7 @@ class Loader:
         return out
 
     @classmethod
-    async def process_temp_dicts(cls):
+    def process_temp_dicts(cls):
         if not os.path.isfile(cls.state_path):
             return OrderedDict(), {}, {}
 
@@ -212,8 +212,8 @@ class Loader:
             )
 
     @classmethod
-    async def load_temp_dicts(cls) -> None:
-        database.local_db,Utility.disabled_servers,Utility.users_status = await cls.process_temp_dicts()
+    def load_temp_dicts(cls) -> None:
+        database.local_db,Utility.disabled_servers,Utility.users_status = cls.process_temp_dicts()
         return
 
     @classmethod
