@@ -24,15 +24,6 @@ class Bot(commands.Bot):
         self.help_command = None
         self.activity = discord.CustomActivity(name="Pegando escopetazos")
         self.director_guild: discord.Guild | None = None
-        self.loader_coro: asyncio.Task | None = None
-
-    def run(self, func_token:str, reconnect:bool = True, *args, **kwargs) -> None:
-        async def runner():
-            self.loader_coro = asyncio.create_task(Loader.load_temp_dicts())
-            async with self:
-                await self.start(func_token, reconnect=reconnect)
-
-        asyncio.run(runner())
 
     async def setup_hook(self):
         for filename in os.listdir('./cogs'):
@@ -42,7 +33,6 @@ class Bot(commands.Bot):
 
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
-        await self.loader_coro
         if not purge_expired_variables.is_running():
             purge_expired_variables.start()
 
@@ -92,6 +82,7 @@ class Bot(commands.Bot):
             return
         db = await database.get_from_database(member.guild.id)
         if not db['annoy_admins']:
+            del Utility.users_status[key]["timeout_until"]
             return
         await member.move_to(channel=None, reason="Ha perdido")
 
@@ -169,8 +160,8 @@ async def help_command(interaction: discord.Interaction):
 
 @tasks.loop(hours=72)
 async def purge_expired_variables():
-    Utility.disabled_servers = await Loader.purge_expired_entries(Utility.disabled_servers)
-    Utility.users_status = await Loader.purge_expired_nested_entries(Utility.users_status)
+    Utility.disabled_servers = Loader.purge_expired_entries(Utility.disabled_servers)
+    Utility.users_status = Loader.purge_expired_nested_entries(Utility.users_status)
 
 if __name__ == "__main__":
     bot.run(token)

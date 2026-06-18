@@ -90,33 +90,38 @@ class Utility:
         disabled_until = Utility.disabled_servers.get(guild_id)
         if disabled_until is None:
             return
-        await asyncio.sleep(disabled_until - time())
+        sleep_time = disabled_until - int(time())
+        if sleep_time < 0:
+            Utility.disabled_servers.pop(guild_id, None)
+            return
+        await asyncio.sleep(sleep_time)
 
         disabled_until = Utility.disabled_servers.get(guild_id)
         if disabled_until is None:
             return
         if time() > disabled_until:
-            Utility.disabled_servers.pop(guild_id)
+            Utility.disabled_servers.pop(guild_id, None)
         return
 
     @staticmethod
     async def delete_expired_user(guild_id: int, member_id: int) -> None:
         key = (guild_id, member_id)
-        user_dict = Utility.users_status.get(key, None)
-        if user_dict is None:
+        user_dict = Utility.users_status.get(key)
+        if not user_dict:
+            Utility.users_status.pop(key, None)
             return
-        if len(user_dict) == 0:
-            Utility.users_status.pop(key)
+        expiry = max(Utility.users_status[key].values()) - int(time())
+        if expiry < 0:
             return
-        max_time = max(Utility.users_status[key].values())
-        await asyncio.sleep(max_time - time())
+        await asyncio.sleep(expiry)
 
-        user_dict = Utility.users_status.get(key, {})
-        if len(user_dict) == 0:
+        user_dict = Utility.users_status.get(key, None)
+        if not user_dict:
+            Utility.users_status.pop(key, None)
             return
-        max_time = max(Utility.users_status[key].values())
-        if time() > max_time:
-            Utility.users_status.pop(key)
+        expiry = max(Utility.users_status[key].values())
+        if time() > expiry:
+            Utility.users_status.pop(key, None)
         return
 
     @classmethod
@@ -141,10 +146,8 @@ class Utility:
                 time_value = max(timed_out_until.timestamp(), expire_at)
             if time_value > time():
                 raise cls.GuildCooldown(expire_at=int(time_value))
-            try:
-                cls.disabled_servers.pop(member.guild.id)
-            except KeyError:
-                pass
+            cls.disabled_servers.pop(member.guild.id, None)
+
             return
 
 
@@ -161,12 +164,8 @@ class Utility:
 
             if disabled_until > time():
                 raise cls.UserCooldown(expire_at=int(disabled_until),extra_cooldown=extra_cooldown)
-            try:
-                del cls.users_status[key]["cooldown_until"]
-                del cls.users_status[key]["timeout_until"]
-            except KeyError:
-                pass
-
+            cls.users_status[key].pop('cooldown_until',None)
+            cls.users_status[key].pop('timeout_until',None)
             return
 
         return app_commands.check(predicate)
@@ -176,24 +175,23 @@ class Loader:
     tmp_path = "state.pkl.tmp"
 
     @staticmethod
-    async def purge_expired_entries(d: dict) -> dict:
-        out: dict = {}
+    def purge_expired_entries(d: dict) -> dict:
         current_time = time()
-        for key, value in d.items():
-            if value > current_time:
-                out[key] = value
+        out: dict = {
+            key: value
+            for key, value in d.items()
+            if value > current_time
+        }
         return out
 
     @staticmethod
-    async def purge_expired_nested_entries(d: dict[Any, dict]) -> dict:
-        out: dict = {}
+    def purge_expired_nested_entries(d: dict[Any, dict]) -> dict:
         current_time = time()
-        for key, nested_dict in d.items():
-            if nested_dict == {}:
-                continue
-            max_value = max(nested_dict.values())
-            if max_value > current_time:
-                out[key] = nested_dict
+        out: dict = {
+            key: nested_dict
+            for key, nested_dict in d.items()
+            if any(v > current_time for v in nested_dict.values())
+        }
         return out
 
     @classmethod
@@ -209,8 +207,8 @@ class Loader:
 
             return (
                 data.get("local_db",OrderedDict()),
-                await cls.purge_expired_entries(data.get("disabled_servers", {})),
-                await cls.purge_expired_nested_entries(data.get("users_status", {}))
+                data.get("disabled_servers", {}),
+                data.get("users_status", {})
             )
 
     @classmethod
@@ -231,4 +229,5 @@ class Loader:
 
 signal.signal(signal.SIGTERM, Loader.save_temp_dicts)
 signal.signal(signal.SIGINT, Loader.save_temp_dicts)
+Loader.load_temp_dicts()
 create_logger()

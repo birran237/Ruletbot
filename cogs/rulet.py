@@ -36,8 +36,10 @@ class Rulet(commands.Cog):
         await interaction.response.send_message(formated_message, ephemeral=ephemeral)
         if timeout_task is not None:
             await timeout_task
-        asyncio.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=interaction.user.id))
-        asyncio.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=objetivo.id))
+
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=interaction.user.id))
+            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=objetivo.id))
 
     async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, asyncio.Task | None]:
         db = await database.get_from_database(interaction.guild.id)

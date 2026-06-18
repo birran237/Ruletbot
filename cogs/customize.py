@@ -54,11 +54,5 @@ class Customize(commands.GroupCog, name="customize", description="Personalizar m
         return_message = await self.message_customization(message=message, guild_id=interaction.guild.id,field="wrong_target")
         await interaction.response.send_message(return_message, ephemeral=True)
 
-    @app_commands.command(name="reset", description="Restableze las frases a los valores por defecto")
-    async def reset(self, interaction: discord.Interaction):
-        guild_id: int = interaction.guild_id
-        await database.del_guild_database(guild_id)
-
-
 async def setup(bot: commands.bot):
     await bot.add_cog(Customize(bot))

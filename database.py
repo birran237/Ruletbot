@@ -4,10 +4,7 @@ from dotenv import load_dotenv
 from collections import OrderedDict
 import os
 import json
-import logging
 from typing import Literal
-
-log = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -33,7 +30,6 @@ firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
 creds_dict = json.loads(firebase_credentials)
 credentials = service_account.Credentials.from_service_account_info(creds_dict)
 db = firestore.Client(credentials=credentials, project=firebase_project_id)
-log.info(f"Connected to firebase")
 
 
 async def save_to_database(guild_id: int, field: db_fields, data: int | bool | str) -> None:
@@ -42,7 +38,6 @@ async def save_to_database(guild_id: int, field: db_fields, data: int | bool | s
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc_ref.set(document_data={field: data},merge=True)
-    log.debug(f"Updated {field} to {data} on guild {guild_id}")
 
 
 async def get_from_database(guild_id: int) -> db_dict:
@@ -74,7 +69,6 @@ async def del_guild_database_field(guild_id: int, field: db_fields) -> None:
     doc_ref = db.collection("guild_config").document(str(guild_id))
     doc = doc_ref.get()
     if doc.exists:
-        log.debug(f"Deleting {field} from {guild_id} from firebase database")
         doc_ref.update({field: firestore.DELETE_FIELD})
 
 
@@ -88,4 +82,3 @@ async def del_guild_database(guild_id: int) -> None:
     for docs in doc_ref.get().to_dict():
         doc_ref.update({docs: firestore.DELETE_FIELD})
     doc_ref.delete()
-    log.debug(f"Deleted {guild_id} from firebase database")
