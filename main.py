@@ -34,7 +34,7 @@ class Bot(commands.Bot):
 
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
-        await Loader.cleanup_expired_entries()
+        asyncio.create_task(Loader.cleanup_expired_entries())
 
         try:
             director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
@@ -45,6 +45,8 @@ class Bot(commands.Bot):
             return
 
         self.director_guild = self.get_guild(director_guild_id)
+        if self.director_guild is None:
+            await self.fetch_guild(director_guild_id)
         if self.director_guild is None:
             await self.tree.sync()
             log.info(f'Synced global commands')
