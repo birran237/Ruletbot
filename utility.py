@@ -7,8 +7,12 @@ import signal, sys, os, pickle
 from collections import OrderedDict
 from string import Template
 import database
-from typing import Literal, Any
+from typing import Literal
 import asyncio
+
+
+# Track running cleanup tasks to prevent duplicates
+_cleanup_tasks: dict[tuple, asyncio.Task] = {}
 
 
 def create_logger():
@@ -28,7 +32,6 @@ def create_logger():
     root_logger.handlers.clear()
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
-
 
 class Utility:
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
@@ -71,7 +74,7 @@ class Utility:
             try:
                 mapper['r'] = str(Utility.users_status[key].get("streak",0))
             except KeyError:
-                mapper['r'] = 0
+                mapper['r'] = "0"
         if target is not None:
             mapper['u'] = target.mention
         if victim is not None:
@@ -85,117 +88,168 @@ class Utility:
 
         return Template(message).safe_substitute(mapper)
 
-    @staticmethod
-    async def delete_expired_disabled_server(guild_id: int) -> None:
-        disabled_until = Utility.disabled_servers.get(guild_id)
-        if disabled_until is None:
-            return
-        sleep_time = disabled_until - int(time())
-        if sleep_time < 0:
-            Utility.disabled_servers.pop(guild_id, None)
-            return
-        await asyncio.sleep(sleep_time)
+    @classmethod
+    async def delete_expired_disabled_server(cls, guild_id: int) -> None:
+        """Wait until the disabled time for a guild has passed, then remove the entry.
+        This function ensures only one cleanup task runs per guild_id at a time."""
+        task_key = ('disabled_server', guild_id)
+        if task_key in _cleanup_tasks:
+            existing_task = _cleanup_tasks[task_key]
+            if not existing_task.done():
+                existing_task.cancel()
 
-        disabled_until = Utility.disabled_servers.get(guild_id)
-        if disabled_until is None:
-            return
-        if time() > disabled_until:
-            Utility.disabled_servers.pop(guild_id, None)
-        return
+        task = asyncio.create_task(cls._delete_expired_disabled_server_internal(guild_id))
+        _cleanup_tasks[task_key] = task
+        try:
+            await task
+        finally:
+            await _cleanup_tasks.pop(task_key, None)
 
     @staticmethod
-    async def delete_expired_user(guild_id: int, member_id: int) -> None:
+    async def _delete_expired_disabled_server_internal(guild_id: int) -> None:
+        """Internal implementation that waits for expiration and cleans up."""
+        while True:
+            disabled_until = Utility.disabled_servers.get(guild_id)
+            if disabled_until is None:
+                # The entry has been removed by another task or manually
+                return
+            now = time()
+            if disabled_until <= now:
+                # The disabled time has passed, remove the entry
+                Utility.disabled_servers.pop(guild_id, None)
+                return
+            wait_time = disabled_until - now
+            await asyncio.sleep(wait_time)
+
+
+    @classmethod
+    async def delete_expired_user(cls, guild_id: int, member_id: int) -> None:
+        """Wait until all expiration times for a user have passed, then remove the entry.
+        This function ensures only one cleanup task runs per user at a time."""
         key = (guild_id, member_id)
-        user_dict = Utility.users_status.get(key)
-        if not user_dict:
-            Utility.users_status.pop(key, None)
-            return
-        expiry = max(Utility.users_status[key].values()) - int(time())
-        if expiry < 0:
-            return
-        await asyncio.sleep(expiry)
+        task_key = ('user', key)
 
-        user_dict = Utility.users_status.get(key, None)
-        if not user_dict:
-            Utility.users_status.pop(key, None)
-            return
-        expiry = max(Utility.users_status[key].values())
-        if time() > expiry:
-            Utility.users_status.pop(key, None)
-        return
+        # Cancel any existing task for this user
+        if task_key in _cleanup_tasks:
+            existing_task = _cleanup_tasks[task_key]
+            if not existing_task.done():
+                existing_task.cancel()
+
+        # Create and store the new task
+        task = asyncio.create_task(cls._delete_expired_user_internal(guild_id, member_id))
+        _cleanup_tasks[task_key] = task
+
+        try:
+            await task
+        finally:
+            # Clean up the task reference when done
+            await _cleanup_tasks.pop(task_key, None)
+
+    @staticmethod
+    async def _delete_expired_user_internal(guild_id: int, member_id: int) -> None:
+        """Internal implementation that waits for expiration and cleans up."""
+        key = (guild_id, member_id)
+        while True:
+            user_dict = Utility.users_status.get(key)
+            if user_dict is None:
+                return
+            if not user_dict:
+                Utility.users_status.pop(key, None)
+                return
+            # Find the maximum expiration time in the user dictionary
+            try:
+                max_expiration = max(user_dict.values())
+            except ValueError:
+                # This happens if user_dict is empty, but we already checked for empty
+                Utility.users_status.pop(key, None)
+                return
+
+            now = time()
+            if max_expiration <= now:
+                # All expiration times have passed, remove the entry
+                Utility.users_status.pop(key, None)
+                return
+
+            wait_time = max_expiration - now
+            await asyncio.sleep(wait_time)
 
     @classmethod
     def cooldown_check(cls):
-        def predicate (interaction: discord.Interaction) -> bool:
-            get_guild_status(interaction)
-            get_user_status(interaction.user)
+        def predicate(interaction: discord.Interaction) -> bool:
+            cls._get_guild_status(interaction)
+            cls._get_user_status(interaction.user)
             return True
 
-        def get_guild_status(interaction: discord.Interaction) -> None:
-            member = interaction.user
-            expire_at = cls.disabled_servers.get(member.guild.id)
-            timed_out_until = interaction.guild.me.timed_out_until
-
-            if expire_at is None and timed_out_until is None:
-                return
-            if expire_at is None:
-                time_value = timed_out_until.timestamp()
-            elif timed_out_until is None:
-                time_value = expire_at
-            else:
-                time_value = max(timed_out_until.timestamp(), expire_at)
-            if time_value > time():
-                raise cls.GuildCooldown(expire_at=int(time_value))
-            cls.disabled_servers.pop(member.guild.id, None)
-
-            return
-
-
-        def get_user_status(member: discord.Member) -> None:
-            key: tuple[int, int] = (member.guild.id, member.id)
-            if key not in cls.users_status:
-                return
-            cooldown_until = cls.users_status[key].get("cooldown_until",0)
-            timeout_until = cls.users_status[key].get("timeout_until",0)
-            extra_cooldown: bool = cooldown_until > timeout_until
-            disabled_until = max(cooldown_until, timeout_until)
-            if disabled_until == 0:
-                return
-
-            if disabled_until > time():
-                raise cls.UserCooldown(expire_at=int(disabled_until),extra_cooldown=extra_cooldown)
-            cls.users_status[key].pop('cooldown_until',None)
-            cls.users_status[key].pop('timeout_until',None)
-            return
-
         return app_commands.check(predicate)
+
+    @classmethod
+    def _get_guild_status(cls, interaction: discord.Interaction) -> None:
+        """Check if the guild is disabled and handle cooldown logic."""
+        guild = interaction.guild
+        expire_at = cls.disabled_servers.get(guild.id)
+        timed_out_until = interaction.guild.me.timed_out_until
+
+        # If neither source indicates a timeout, nothing to do
+        if expire_at is None and timed_out_until is None:
+            return
+
+        # Calculate the expiration time from available sources
+        times = []
+        if expire_at is not None:
+            times.append(expire_at)
+        if timed_out_until is not None:
+            times.append(timed_out_until.timestamp())
+
+        if not times:
+            return
+
+        time_value = max(times)
+        if time_value > time():
+            raise cls.GuildCooldown(expire_at=int(time_value))
+
+        # Clean up expired entry
+        cls.disabled_servers.pop(guild.id, None)
+
+    @classmethod
+    def _get_user_status(cls, member: discord.Member) -> None:
+        """Check if the user is on cooldown/timeout and handle cooldown logic."""
+        key: tuple[int, int] = (member.guild.id, member.id)
+        if key not in cls.users_status:
+            return
+
+        cooldown_until = cls.users_status[key].get("cooldown_until", 0)
+        timeout_until = cls.users_status[key].get("timeout_until", 0)
+        extra_cooldown: bool = cooldown_until > timeout_until
+        disabled_until = max(cooldown_until, timeout_until)
+
+        # If neither cooldown nor timeout is active, nothing to do
+        if disabled_until == 0:
+            return
+
+        if disabled_until > time():
+            raise cls.UserCooldown(expire_at=int(disabled_until), extra_cooldown=extra_cooldown)
+
+        # Clean up expired cooldown/timeout values
+        cls.users_status[key].pop('cooldown_until', None)
+        cls.users_status[key].pop('timeout_until', None)
 
 class Loader:
     state_path = "state.pkl"
     tmp_path = "state.pkl.tmp"
 
     @staticmethod
-    def purge_expired_entries(d: dict) -> dict:
-        current_time = time()
-        out: dict = {
-            key: value
-            for key, value in d.items()
-            if value > current_time
-        }
-        return out
-
-    @staticmethod
-    def purge_expired_nested_entries(d: dict[Any, dict]) -> dict:
-        current_time = time()
-        out: dict = {
-            key: nested_dict
-            for key, nested_dict in d.items()
-            if any(v > current_time for v in nested_dict.values())
-        }
-        return out
+    async def cleanup_expired_entries():
+        tasks = []
+        # We make a copy of the keys to avoid dictionary changed size during iteration
+        for key in list(Utility.users_status.keys()):
+            tasks.append(Utility.delete_expired_user(*key))
+        for key in list(Utility.disabled_servers.keys()):
+            tasks.append(Utility.delete_expired_disabled_server(key))
+        if tasks:
+            await asyncio.gather(*tasks)
 
     @classmethod
-    def process_temp_dicts(cls):
+    def _process_temp_dicts(cls):
         if not os.path.isfile(cls.state_path):
             return OrderedDict(), {}, {}
 
@@ -213,11 +267,13 @@ class Loader:
 
     @classmethod
     def load_temp_dicts(cls) -> None:
-        database.local_db,Utility.disabled_servers,Utility.users_status = cls.process_temp_dicts()
+        database.local_db,Utility.disabled_servers,Utility.users_status = cls._process_temp_dicts()
         return
 
     @classmethod
     def save_temp_dicts(cls, signum, frame) -> None:
+        # Mark unused parameters to satisfy linter
+        _ = signum, frame
         data = {"local_db":database.local_db,"disabled_servers":Utility.disabled_servers,"users_status":Utility.users_status}
         with open(cls.tmp_path, 'wb') as f:
             pickle.dump(data, f)

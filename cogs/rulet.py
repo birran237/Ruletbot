@@ -8,6 +8,7 @@ from time import time
 from utility import Utility
 import logging
 import asyncio
+from typing import Coroutine, cast
 
 log = logging.getLogger(__name__)
 class Rulet(commands.Cog):
@@ -26,55 +27,64 @@ class Rulet(commands.Cog):
         )
         self.bot.tree.add_command(self.rulet_app)
 
-
+    @app_commands.guild_only()
     @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
     @Utility.cooldown_check()
     async def rulet_command(self, interaction: discord.Interaction, objetivo: discord.Member):
-        message, loser, timeout_task = await self.tirar_rulet(interaction, objetivo)
+        guild = interaction.guild
+        assert guild is not None
+        assert isinstance(interaction.user, discord.Member)
+        try: #checks if the user is in the server
+            _ = await guild.fetch_member(objetivo.id)
+        except discord.NotFound:
+            raise app_commands.TransformerError
+
+        message, loser, timeout_coro = await self.tirar_rulet(interaction, objetivo)
         ephemeral = loser is None
         formated_message = Utility.format_message(message, author=interaction.user, target=objetivo, victim=loser)
-        await interaction.response.send_message(formated_message, ephemeral=ephemeral)
-        if timeout_task is not None:
-            await timeout_task
-
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=interaction.user.id))
-            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild_id, member_id=objetivo.id))
+            tg.create_task(interaction.response.send_message(formated_message, ephemeral=ephemeral))
+            if timeout_coro is not None:
+                tg.create_task(timeout_coro)
+            tg.create_task(Utility.delete_expired_user(guild_id=guild.id, member_id=interaction.user.id))
+            tg.create_task(Utility.delete_expired_user(guild_id=guild.id, member_id=objetivo.id))
 
-    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, asyncio.Task | None]:
+    async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, Coroutine | None]:
+        assert isinstance(interaction.user, discord.Member); assert isinstance(interaction.guild, discord.Guild)
         db = await database.get_from_database(interaction.guild.id)
         key: tuple[int, int] = (interaction.guild.id, interaction.user.id)
         if key not in Utility.users_status:
             Utility.users_status[key] = {}
 
         if interaction.user.id == target.id or target.bot:
-            task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
-            return db['wrong_target'], interaction.user, task
+            coro = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
+            return str(db['wrong_target']), interaction.user, coro
 
         if not db['annoy_admins']:
             message = await self.check_valid_rulet(interaction, target)
             if message is not None: return message, None, None
 
-        if Utility.users_status[key].get("streak_expiates",0) < time():
-            Utility.users_status[key]["streak"] = 0
+        user_status = Utility.users_status[key]
+        if user_status.get("streak_expiates",0) < time():
+            user_status["streak"] = 0
 
-        extra_chance:float = min(Utility.users_status[key].get("streak", 0) * 0.05, 0.4)
+        extra_chance:float = min(user_status.get("streak", 0) * 0.05, 0.4)
         if randint(0, 1) + extra_chance > 0.5:
-            Utility.users_status[key]["streak"] = Utility.users_status[key].get("streak", 0) + 1
-            Utility.users_status[key]["streak_expiates"] = int(time()) + 300
+            user_status["streak"] = user_status.get("streak", 0) + 1
+            user_status["streak_expiates"] = int(time()) + 300
             message = db['win_message'] if extra_chance < 0.1 else db['win_streak_message']
-            task = await self.timeout(interaction, target, db)
-            return message, target, task
+            coro = await self.timeout(interaction, target, db)
+            return str(message), target, coro
 
         if target.voice and not interaction.user.voice:
-            task = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
+            coro = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
             await self.set_user_cooldown(interaction, db=db, multiplier=3)
-            return db['lose_penalty_message'], interaction.user, task
+            return str(db['lose_penalty_message']), interaction.user, coro
 
-        task = await self.timeout(interaction, interaction.user, db=db)
+        coro = await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
-        return db['lose_message'], interaction.user, task
+        return str(db['lose_message']), interaction.user, coro
 
     @staticmethod
     async def check_valid_rulet(interaction: discord.Interaction, target: discord.Member) -> str | None:
@@ -88,40 +98,55 @@ class Rulet(commands.Cog):
         return f"{target.display_name} tiene un rol superior al tuyo y al rol `rulet bot` y no le puedes retar"
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> asyncio.Task:
-        timeout_impossible: bool = user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator
-        seconds: int = db['timeout_seconds']
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> Coroutine:
+        # Handle timing out a user (either voice kick or Discord timeout).
+        # Check if timeout is impossible (user has higher/equal role or is admin)
+        timeout_impossible: bool = bool(user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator)
+        seconds: int = int(db['timeout_seconds'])
 
+        # Ensure user entry exists in status tracking
         key: tuple[int, int] = (user.guild.id, user.id)
         if key not in Utility.users_status:
             Utility.users_status[key] = {}
 
+        # Clear streak data when applying timeout
         try:
             del Utility.users_status[key]["streak_expiates"]
             del Utility.users_status[key]["streak"]
         except KeyError:
             pass
 
-        if timeout_impossible or seconds == 0:
-            base_value = max(Utility.users_status[key].get("timeout_until", 0), int(time()))
-            Utility.users_status[key]["timeout_until"] = base_value + (seconds * multiplier)
-            task = asyncio.create_task(user.move_to(channel=None, reason="Ha perdido"))
-            return task
+        # Calculate total timeout duration
+        timeout_duration = seconds * multiplier
 
-        timeout_time: timedelta | datetime = timedelta(seconds=seconds * multiplier)
-        Utility.users_status[key]["timeout_until"] = int(time()) + (seconds * multiplier)
+        # If timeout is impossible or duration is zero, use voice kick
+        if timeout_impossible or timeout_duration == 0:
+            # Set the timeout_until to the maximum of current time and existing timeout
+            current_timeout_until = Utility.users_status[key].get("timeout_until", 0)
+            new_timeout_until = max(current_timeout_until, int(time())) + timeout_duration
+            Utility.users_status[key]["timeout_until"] = new_timeout_until
+            return user.move_to(channel=None, reason="Ha perdido")
 
+        # Use Discord's timeout feature
+        # Calculate new timeout time
+        new_timeout_until = int(time()) + timeout_duration
+
+        # If user is already timed out, extend the timeout
         if user.timed_out_until is not None and user.timed_out_until > datetime.now(UTC):
-            timeout_time = timeout_time + user.timed_out_until
-            Utility.users_status[key]["timeout_until"] = int(timeout_time.timestamp())
+            # Add existing timeout to new timeout (extend duration)
+            extension = user.timed_out_until - datetime.now(UTC)
+            new_timeout_until += int(extension.total_seconds())
 
-        task = asyncio.create_task(user.timeout(timeout_time, reason="Ha perdido"))
-        return task
+        Utility.users_status[key]["timeout_until"] = new_timeout_until
+
+        # Apply the timeout
+        timeout_duration = timedelta(seconds=new_timeout_until - time())
+        return user.timeout(timeout_duration, reason="Ha perdido")
 
     @staticmethod
     async def set_user_cooldown(interaction: discord.Interaction, db: database.db_dict, multiplier: int = 1) -> None:
-        key: tuple[int, int] = (interaction.guild_id, interaction.user.id)
-        total_time: int = db['timeout_seconds'] + (db['lose_cooldown'] * multiplier)
+        key: tuple[int, int] = (interaction.guild.id, interaction.user.id)
+        total_time: int = int(db['timeout_seconds'] + (int(db['lose_cooldown']) * multiplier))
         available_on: int = int(total_time + time())
 
         if key not in Utility.users_status:

@@ -55,7 +55,7 @@ class Admin(commands.Cog):
         expire_at = int(time() + total_seconds)
         Utility.disabled_servers[interaction.guild_id] = expire_at
         await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
-        asyncio.create_task(Utility.delete_expired_disabled_server(guild_id=interaction.guild_id))
+        await Utility.delete_expired_disabled_server(guild_id=interaction.guild_id)
 
     @admin_group.command(name="timeout", description="Configura los segundos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(seconds="Cantidad de segundos (0–600), dejar a 0 solo para expulsar de vc")

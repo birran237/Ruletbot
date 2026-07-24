@@ -1,7 +1,7 @@
 from utility import Utility, Loader
 import database
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord import app_commands
 from time import time
 import logging, os, asyncio
@@ -31,10 +31,10 @@ class Bot(commands.Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
                 log.info(f'Loaded cog {filename[:-3]}')
 
+
     async def on_ready(self):
         log.info(f'Logged in as {self.user.name} (ID: {self.user.id})')
-        if not purge_expired_variables.is_running():
-            purge_expired_variables.start()
+        await Loader.cleanup_expired_entries()
 
         try:
             director_guild_id: int | None = int(os.getenv('DIRECTOR_GUILD'))
@@ -65,6 +65,7 @@ class Bot(commands.Bot):
 
     @staticmethod
     async def on_voice_state_update(member, before, after):
+        _ = after
         if before.channel is not None:
             return
 
@@ -96,6 +97,10 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         if error.expire_at:
             message += " (cooldown extra por retar a una persona y perder o por retar a alguien dentro de llamada estando fuera de un canal de voz)"
         await interaction.response.send_message(message, ephemeral=True)
+        return
+
+    if isinstance(error, app_commands.TransformerError):
+        await interaction.response.send_message("Este usuario no esta en el servidor (que coño habeis hecho)",ephemeral=True)
         return
 
     if isinstance(error, app_commands.CheckFailure):
@@ -133,8 +138,10 @@ async def sync_tree(interaction: discord.Interaction):
 
 @app_commands.command(description="Borrar la base de datos local")
 @app_commands.describe(variable="Variable a eliminar")
-async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users", "all"]):
+async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users", "all", "none"]):
     match variable:
+        case "none":
+            await interaction.response.send_message(f"Hay {len(database.local_db)} elementos de la base de datos local, {len(Utility.disabled_servers)} elementos de los servidores deshabilitados y {len(Utility.users_status)} elementos de los usuarios deshabilitados")
         case "all":
             database.local_db, Utility.disabled_servers, Utility.users_status = OrderedDict(), {}, {}
             await interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
@@ -157,11 +164,6 @@ async def help_command(interaction: discord.Interaction):
     if interaction.user.resolved_permissions.administrator and not db['annoy_admins']:
         message += f"\n \n**Importante:** ningun usuario podrá retar a alguien o con el permiso de administrador, o que su rol más alto sea superior al rol `Rulet bot`. Para que el bot afecte a todos use el comando `/set annoy_admins True`"
     await interaction.response.send_message(message, ephemeral=True)
-
-@tasks.loop(hours=72)
-async def purge_expired_variables():
-    Utility.disabled_servers = Loader.purge_expired_entries(Utility.disabled_servers)
-    Utility.users_status = Loader.purge_expired_nested_entries(Utility.users_status)
 
 if __name__ == "__main__":
     bot.run(token)
