@@ -9,9 +9,8 @@ class Customize(commands.GroupCog, name="customize", description="Personalizar m
     def __init__(self, bot):
         self.bot = bot
 
-    #every user must at least have moderate_members permissions
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.guild_permissions.moderate_members
+        return interaction.user.guild_permissions.administrator
 
     @staticmethod
     async def message_customization(message: str, guild_id: int, field: database.db_fields) -> str:

@@ -10,36 +10,45 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    #every user must at least have moderate_members permissions
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.guild_permissions.moderate_members
+        return interaction.user.guild_permissions.administrator
 
     admin_group = app_commands.Group(name="set", description="Modificar ajustes del bot",default_permissions=discord.Permissions(administrator=True))
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="disable", description="Deshabilita el bot durante los minutos especificados")
     async def disable(self, interaction: discord.Interaction, minutos: app_commands.Range[float, -1, 60] = -1, horas: app_commands.Range[float, -1, 24] = 0, dias: app_commands.Range[float, -1, 30] = 0):
-        disabled_until = Utility.disabled_servers.get(interaction.guild.id, 0)
+        # Get disable time from utility (returns None if not set, or timestamp if set)
+        disabled_until = Utility.disabled_servers.get(interaction.guild.id)
+        # Get bot timeout time (returns None if not timed out, or datetime if timed out)
         timed_out_until = interaction.guild.me.timed_out_until
 
-        if disabled_until is None:
-            remaining_time = timed_out_until.timestamp() - time()
-        elif timed_out_until is None:
-            remaining_time = disabled_until - time()
-        else:
-            remaining_time = max(timed_out_until.timestamp(), disabled_until) - time()
+        # Clean up expired disabled server entry if needed
+        if disabled_until is not None and disabled_until < time():
+            Utility.disabled_servers.pop(interaction.guild.id, None)
+            disabled_until = None
 
+        # Calculate remaining time if either disable or timeout is active
+        remaining_time = 0
+        if disabled_until is not None:
+            remaining_time = max(remaining_time, disabled_until - time())
+        if timed_out_until is not None:
+            remaining_time = max(remaining_time, timed_out_until.timestamp() - time())
+
+        # Handle status check (when user passes negative values)
         if minutos + horas + dias <= -3:
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot está habilitado", ephemeral=True)
                 return
-            await interaction.response.send_message(f"El bot no funcionará hasta <t:{disabled_until}:R>", ephemeral=True)
+            await interaction.response.send_message(f"El bot no funcionará hasta <t:{int(time() + remaining_time)}:R>", ephemeral=True)
             return
 
-        minutos, horas, dias = max(minutos, 0), max(horas,0), max(dias, 0)
+        # Normalize input values
+        minutos, horas, dias = max(minutos, 0), max(horas, 0), max(dias, 0)
         total_seconds = minutos * 60 + horas * 60 * 60 + dias * 60 * 60 * 24
 
         if total_seconds == 0:
+            # User wants to enable the bot
             if remaining_time <= 0:
                 await interaction.response.send_message(f"El bot ya estaba habilitado", ephemeral=True)
                 return
@@ -48,14 +57,17 @@ class Admin(commands.Cog):
                 await interaction.response.send_message(f"El bot ha sido aislado temporalmente, desaislalo para que vuelva a funcionar", ephemeral=True)
                 return
 
-            Utility.disabled_servers.pop(interaction.guild_id)
+            # Remove disable setting if exists
+            if interaction.guild.id in Utility.disabled_servers:
+                Utility.disabled_servers.pop(interaction.guild.id)
             await interaction.response.send_message(f"El bot vuelve a estar habilitado", ephemeral=True)
             return
 
+        # Set new disable time
         expire_at = int(time() + total_seconds)
-        Utility.disabled_servers[interaction.guild_id] = expire_at
+        Utility.disabled_servers[interaction.guild.id] = expire_at
         await interaction.response.send_message(f"El bot no funcionará hasta <t:{expire_at}:R>", ephemeral=True)
-        await Utility.delete_expired_disabled_server(guild_id=interaction.guild_id)
+        await Utility.delete_expired_disabled_server(guild_id=interaction.guild.id)
 
     @admin_group.command(name="timeout", description="Configura los segundos de timeout de la rulet (deja en blanco para ver ajustes actuales)")
     @app_commands.describe(seconds="Cantidad de segundos (0–600), dejar a 0 solo para expulsar de vc")

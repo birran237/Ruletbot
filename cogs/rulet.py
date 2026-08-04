@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+from discord._types import ClientT
 from discord.ext import commands
 import database
 from random import randint
@@ -27,15 +28,15 @@ class Rulet(commands.Cog):
         )
         self.bot.tree.add_command(self.rulet_app)
 
+
     @app_commands.guild_only()
     @app_commands.describe(objetivo="La persona a la que retaras a la rulet")
     @Utility.cooldown_check()
+    @Utility.check_valid_perms()
     async def rulet_command(self, interaction: discord.Interaction, objetivo: discord.Member):
-        guild = interaction.guild
-        assert guild is not None
-        assert isinstance(interaction.user, discord.Member)
+
         try: #checks if the user is in the server
-            _ = await guild.fetch_member(objetivo.id)
+            _ = await interaction.guild.fetch_member(objetivo.id)
         except discord.NotFound:
             raise app_commands.TransformerError
 
@@ -46,8 +47,8 @@ class Rulet(commands.Cog):
             tg.create_task(interaction.response.send_message(formated_message, ephemeral=ephemeral))
             if timeout_coro is not None:
                 tg.create_task(timeout_coro)
-            tg.create_task(Utility.delete_expired_user(guild_id=guild.id, member_id=interaction.user.id))
-            tg.create_task(Utility.delete_expired_user(guild_id=guild.id, member_id=objetivo.id))
+            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild.id, member_id=interaction.user.id))
+            tg.create_task(Utility.delete_expired_user(guild_id=interaction.guild.id, member_id=objetivo.id))
 
     async def tirar_rulet(self, interaction: discord.Interaction, target: discord.Member) -> tuple[str, discord.Member | None, Coroutine | None]:
         assert isinstance(interaction.user, discord.Member); assert isinstance(interaction.guild, discord.Guild)

@@ -45,6 +45,12 @@ class Utility:
             self.expire_at: int = expire_at
             self.extra_cooldown: bool = extra_cooldown
 
+    class MissingPerms(app_commands.CheckFailure):
+        def __init__(self, missing_perms: list[str]) -> None:
+            self.missing_perms: list[str] = missing_perms
+    class GuildCheckFailure(app_commands.CheckFailure):
+        pass
+
     @staticmethod
     def format_seconds(seconds: int | float) -> str:
         seconds = int(seconds)
@@ -88,6 +94,25 @@ class Utility:
 
         return Template(message).safe_substitute(mapper)
 
+    @classmethod
+    def check_valid_perms(cls):
+        def predicate(interaction: discord.Interaction) -> bool:
+            bot_member = interaction.guild.me
+            bot_permissions = bot_member.guild_permissions
+            missing_perms = []
+
+            if not bot_permissions.moderate_members:
+                missing_perms.append("timeout members")
+            if not bot_permissions.send_messages:
+                missing_perms.append("send texts")
+            if not bot_permissions.move_members:
+                missing_perms.append("move users")
+
+            # If any permissions are missing, send an ephemeral message and return False
+            if missing_perms:
+                raise cls.MissingPerms(missing_perms)
+            return True
+        return app_commands.check(predicate)
     @classmethod
     async def delete_expired_disabled_server(cls, guild_id: int) -> None:
         """Wait until the disabled time for a guild has passed, then remove the entry.

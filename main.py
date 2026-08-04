@@ -85,7 +85,7 @@ class Bot(commands.Bot):
             return
         db = await database.get_from_database(member.guild.id)
         if not db['annoy_admins']:
-            del Utility.users_status[key]["timeout_until"]
+            Utility.users_status[key].pop("timeout_until",0)
             return
         await member.move_to(channel=None, reason="Ha perdido")
 
@@ -105,8 +105,18 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
         await interaction.response.send_message("Este usuario no esta en el servidor (que coño habeis hecho)",ephemeral=True)
         return
 
+    if isinstance(error, Utility.GuildCheckFailure):
+        await interaction.response.send_message("Este comando solo puede usarse en servidores", ephemeral=True)
+        return
+    if isinstance(error, Utility.MissingPerms):
+        missing_list = ", ".join(error.missing_perms)
+        await interaction.response.send_message(
+            f"Necesito estos permisos como mínimo para funcionar correctamente: {missing_list}, si quieres modificar el comportamiento del bot comunicale a un administrador que use `/help`",
+            ephemeral=True
+        )
+
     if isinstance(error, app_commands.CheckFailure):
-        await interaction.response.send_message("Para ejectuar este comando necesitas poder aislar temporalmente a miembros", ephemeral=True)
+        await interaction.response.send_message("Para ejecutar este comando necesitas permisos de administrador", ephemeral=True)
         return
 
     error_message = await get_command_error(interaction, error)
@@ -114,7 +124,7 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
     if bot.director_guild is not None:
         await bot.director_guild.system_channel.send(error_message)
 
-async def get_command_error(interaction: discord.Interaction, error: app_commands.errors) -> str:
+async def get_command_error(interaction: discord.Interaction | None, error: app_commands.errors) -> str:
     if interaction is None:
         return f"There was an error without an interaction"
     def param_string(parameter, namespace: discord.Interaction.namespace) -> str:
@@ -126,12 +136,21 @@ async def get_command_error(interaction: discord.Interaction, error: app_command
         await interaction.response.send_message("Ha ocurrido un error inesperado, vuelve a intentarlo más tarde",ephemeral=True)
         parameters = [param_string(i.name, interaction.namespace) for i in interaction.command.parameters] if hasattr(interaction.command, 'parameters') else []
     except Exception as mssg_error:
+        if isinstance(interaction.guild, discord.Guild) and isinstance(interaction.user, discord.abc.User):
+            return f"There was an error in guild **{interaction.guild}({interaction.guild.id})** by user **{interaction.user.display_name}({interaction.user.id})**: **{error}**"
         return f"There was an error and in its handling this error ocurred: **{mssg_error}**"
 
     return f"There was an error in guild **{interaction.guild}({interaction.guild_id})** by user **{interaction.user.display_name}({interaction.user.id})** with command /{interaction.command.qualified_name} {', '.join(parameters)}: **{error}**"
 
+async def interaction_check(interaction: discord.Interaction) -> bool:
+    # Check if we're in a guild
+    if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+        raise Utility.GuildCheckFailure()
+    return True
+
 bot = Bot()
 bot.tree.on_error = error_handler
+bot.tree.interaction_check = interaction_check
 
 @app_commands.command(description="Sincronizar el arbol de comandos global")
 async def sync_tree(interaction: discord.Interaction):
