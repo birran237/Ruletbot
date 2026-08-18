@@ -128,7 +128,7 @@ class Utility:
         try:
             await task
         finally:
-            await _cleanup_tasks.pop(task_key, None)
+            _cleanup_tasks.pop(task_key, None)
 
     @staticmethod
     async def _delete_expired_disabled_server_internal(guild_id: int) -> None:
@@ -168,7 +168,7 @@ class Utility:
             await task
         finally:
             # Clean up the task reference when done
-            await _cleanup_tasks.pop(task_key, None)
+            _cleanup_tasks.pop(task_key, None)
 
     @staticmethod
     async def _delete_expired_user_internal(guild_id: int, member_id: int) -> None:
