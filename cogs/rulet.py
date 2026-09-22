@@ -62,8 +62,7 @@ class Rulet(commands.Cog):
             return message, None, None
 
         user_status = Utility.users_status[key]
-
-        if "vc_rulet_available" in user_status and user_status.get("vc_rulet_available", 0) < time() and target.voice:
+        if "vc_rulet_available" in user_status and user_status.get("vc_rulet_available", 0) > time() and target.voice:
             message = f'Llevas demasiado poco tiempo en un chat de voz, podrás retar a alguien en un vc en <t:{user_status.get("vc_rulet_available", time()+ 5*60)}:R>'
             return message, None, None
 
