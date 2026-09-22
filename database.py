@@ -9,17 +9,16 @@ from typing import Literal
 
 load_dotenv()
 
-db_fields = Literal["timeout_seconds","lose_cooldown","annoy_admins","win_message","win_streak_message","lose_message","lose_penalty_message","wrong_target"]
-db_dict = dict[db_fields, int | bool | str]
+db_fields = Literal["timeout_seconds","lose_cooldown","annoy_admins","win_message","win_streak_message","lose_message","wrong_target"]
+db_dict = dict[db_fields, int | str]
 local_db: OrderedDict[int, db_dict] = OrderedDict()
 defaults:db_dict = {
     "timeout_seconds": 60,
     "lose_cooldown": 86400,
-    "annoy_admins": False,
+    "annoy_admins": 0,
     "win_message": "${k} ha retado a un duelo a ${u} y ha ganado",
     "win_streak_message": "${k} ha retado a un duelo a ${u} y ha ganado con una racha de $r",
     "lose_message": "${k} ha retado a un duelo a ${u} y ha perdido",
-    "lose_penalty_message": "${k} ha retado a un duelo a ${u} y ha perdido con penalización extra (hasta dentro de $t)",
     "wrong_target": "${k} tus dos abuelos son la misma persona (no vuelve hasta dentro de $t)",
 }
 
@@ -32,7 +31,7 @@ credentials = service_account.Credentials.from_service_account_info(creds_dict)
 db = firestore.Client(credentials=credentials, project=firebase_project_id)
 
 
-async def save_to_database(guild_id: int, field: db_fields, data: int | bool | str) -> None:
+async def save_to_database(guild_id: int, field: db_fields, data: int | str) -> None:
     if guild_id in local_db:
         local_db[guild_id][field] = data
 
@@ -52,8 +51,6 @@ async def get_from_database(guild_id: int) -> db_dict:
     return_dict:db_dict = defaults | doc
     if "win_streak_message" not in doc and "win_message" in doc:
         return_dict["win_streak_message"] = doc["win_message"]
-    if "lose_penalty_message" not in doc and "lose_message" in doc:
-        return_dict["lose_penalty_message"] = doc["lose_message"]
     if len(local_db) >= 2000:
         local_db.popitem(last=False)
 

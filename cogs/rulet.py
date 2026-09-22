@@ -57,15 +57,25 @@ class Rulet(commands.Cog):
         if key not in Utility.users_status:
             Utility.users_status[key] = {}
 
+        if target.voice and not interaction.user.voice:
+            message = "No puedes retar a una persona en un chat de voz sin tu estar en ninguno"
+            return message, None, None
+
+        user_status = Utility.users_status[key]
+
+        if "vc_rulet_available" in user_status and user_status.get("vc_rulet_available", 0) < time() and target.voice:
+            message = f"Llevas demasiado poco tiempo en un chat de voz, podrás retar a alguien en un vc en <t:{user_status.get("vc_rulet_available", time()+ 5*60)}:R>"
+            return message, None, None
+
         if interaction.user.id == target.id or target.bot:
             coro = await self.timeout(interaction, user=interaction.user, db=db, multiplier=5)
             return str(db['wrong_target']), interaction.user, coro
 
-        if not db['annoy_admins']:
+        if db['annoy_admins'] < 2:
             message = await self.check_valid_rulet(interaction, target)
             if message is not None: return message, None, None
 
-        user_status = Utility.users_status[key]
+
         if user_status.get("streak_expiates",0) < time():
             user_status["streak"] = 0
 
@@ -77,11 +87,6 @@ class Rulet(commands.Cog):
             coro = await self.timeout(interaction, target, db)
             return str(message), target, coro
 
-        if target.voice and not interaction.user.voice:
-            coro = await self.timeout(interaction, user=interaction.user, db=db, multiplier=3)
-            await self.set_user_cooldown(interaction, db=db, multiplier=3)
-            return str(db['lose_penalty_message']), interaction.user, coro
-
         coro = await self.timeout(interaction, interaction.user, db=db)
         await self.set_user_cooldown(interaction, db=db)
 
@@ -89,20 +94,18 @@ class Rulet(commands.Cog):
 
     @staticmethod
     async def check_valid_rulet(interaction: discord.Interaction, target: discord.Member) -> str | None:
-        higher_role_than_bot: bool = target.top_role > interaction.guild.self_role
-        higher_role_than_author: bool = target.top_role > interaction.user.top_role
+        higher_role_than_bot: bool = target.top_role > interaction.guild.self_role or target.id == interaction.guild.owner_id
+        higher_role_than_author: bool = target.top_role > interaction.user.top_role or target.id == interaction.guild.owner_id
 
-        if not ((target.resolved_permissions.administrator or higher_role_than_bot) and higher_role_than_author):
-            return None
-        if target.resolved_permissions.administrator:
-            return f"{target.display_name} es un administrador con un rol más alto al tuyo y no le puedes retar"
+        if not (higher_role_than_bot and higher_role_than_author):
+            return None #Only allow rulet if the target is able to be timedout by the bot or if the author has a higher role than the target
         return f"{target.display_name} tiene un rol superior al tuyo y al rol `rulet bot` y no le puedes retar"
 
     @staticmethod
-    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> Coroutine:
+    async def timeout(interaction: discord.Interaction, user: discord.Member, db: database.db_dict, multiplier: int = 1) -> Coroutine | None:
         # Handle timing out a user (either voice kick or Discord timeout).
         # Check if timeout is impossible (user has higher/equal role or is admin)
-        timeout_impossible: bool = bool(user.top_role >= interaction.guild.me.top_role or user.resolved_permissions.administrator)
+        timeout_impossible: bool = bool(user.top_role >= interaction.guild.me.top_role or user.id == interaction.guild.owner_id or user.resolved_permissions.administrator)
         seconds: int = int(db['timeout_seconds'])
 
         # Ensure user entry exists in status tracking
@@ -122,6 +125,8 @@ class Rulet(commands.Cog):
 
         # If timeout is impossible or duration is zero, use voice kick
         if timeout_impossible or timeout_duration == 0:
+            if db['annoy_admins'] == 0:
+                return None
             # Set the timeout_until to the maximum of current time and existing timeout
             current_timeout_until = Utility.users_status[key].get("timeout_until", 0)
             new_timeout_until = max(current_timeout_until, int(time())) + timeout_duration

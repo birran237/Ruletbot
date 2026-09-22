@@ -1,4 +1,4 @@
-from utility import Utility, Loader
+from utility import Utility, Loader, PageView, CLEANUP_TASKS
 import database
 import discord
 from discord.ext import commands
@@ -67,27 +67,72 @@ class Bot(commands.Bot):
 
     @staticmethod
     async def on_voice_state_update(member, before, after):
-        _ = after
         if before.channel is not None:
-            return
-
-        if not member.guild_permissions.administrator and member.top_role < member.guild.me.top_role:
+            if after.channel is None:
+                await handle_leave_vc(member)
             return
 
         key: tuple[int, int] = (member.guild.id, member.id)
         if key not in Utility.users_status:
+            Utility.users_status[key] = {}
+
+        if await check_force_timeout(member):
+            await member.move_to(channel=None, reason="Ha perdido")
             return
-        if "timeout_until" not in Utility.users_status[key]:
+
+        if 'vc_rulet_available' not in Utility.users_status[key]:
+            #user will be able to use the rulet in 5 minutes after joining vc
+            Utility.users_status[key]['vc_rulet_available'] = int(time() + 5*60)
+
+async def handle_leave_vc(member: discord.Member) -> None:
+    key: tuple[int, int] = (member.guild.id, member.id)
+    if key not in Utility.users_status[key]:
+        return
+    user_status = Utility.users_status[key]
+    if "vc_rulet_available" not in user_status or user_status.get("vc_rulet_available", 0) < time():
+        return
+    db = await database.get_from_database(member.guild.id)
+
+    task_key = ("vc_hold", key)
+    if task_key in CLEANUP_TASKS:
+        existing_task = CLEANUP_TASKS[task_key]
+        if not existing_task.done():
+            existing_task.cancel()
+
+    # Create and store the new task
+    hold_time = db["timeout_seconds"] + 60
+    Utility.users_status[key]["vc_rulet_hold"] = int(hold_time + time())
+    task = asyncio.create_task(_handle_leave_vc_internal(member, hold_time))
+    CLEANUP_TASKS[task_key] = task
+
+async def _handle_leave_vc_internal(member: discord.Member, hold_time: int) -> None:
+    key: tuple[int,int] = (member.guild.id, member.id)
+    while True:
+        await asyncio.sleep(hold_time)
+        if key not in Utility.users_status[key]:
             return
-        remaining: float = Utility.users_status[key].get("timeout_until", 0) - time()
-        if remaining <= 0:
-            del Utility.users_status[key]["timeout_until"]
+        if Utility.users_status[key].get("vc_rulet_hold", 0) < time() + hold_time:
+            Utility.users_status[key].pop("vc_rulet_hold", 0)
+            Utility.users_status[key].pop("vc_rulet_available", 0)
             return
-        db = await database.get_from_database(member.guild.id)
-        if not db['annoy_admins']:
-            Utility.users_status[key].pop("timeout_until",0)
-            return
-        await member.move_to(channel=None, reason="Ha perdido")
+        hold_time = int(Utility.users_status[key].get("vc_rulet_hold", 0) - time())
+
+async def check_force_timeout(member: discord.Member) -> bool:
+    if not member.guild_permissions.administrator and member.top_role < member.guild.me.top_role and member != member.guild.owner:
+        return False
+
+    key: tuple[int, int] = (member.guild.id, member.id)
+    if "timeout_until" not in Utility.users_status[key]:
+        return False
+    remaining: float = Utility.users_status[key].get("timeout_until", 0) - time()
+    if remaining <= 0:
+        Utility.users_status[key].pop("timeout_until", 0)
+        return False
+    db = await database.get_from_database(member.guild.id)
+    if db['annoy_admins'] == 0:
+        Utility.users_status[key].pop("timeout_until", 0)
+        return False
+    return True
 
 async def error_handler(interaction: discord.Interaction, error: app_commands.errors) -> None:
     if isinstance(error, Utility.GuildCooldown):
@@ -97,7 +142,7 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
     if isinstance(error, Utility.UserCooldown):
         message = f"Has retado a alguien recientemente y has perdido, no podras usar la rulet hasta <t:{error.expire_at}:R>"
         if error.expire_at:
-            message += " (cooldown extra por retar a una persona y perder o por retar a alguien dentro de llamada estando fuera de un canal de voz)"
+            message += " (cooldown extra por retar a una persona y perder)"
         await interaction.response.send_message(message, ephemeral=True)
         return
 
@@ -108,12 +153,10 @@ async def error_handler(interaction: discord.Interaction, error: app_commands.er
     if isinstance(error, Utility.GuildCheckFailure):
         await interaction.response.send_message("Este comando solo puede usarse en servidores", ephemeral=True)
         return
+
     if isinstance(error, Utility.MissingPerms):
         missing_list = ", ".join(error.missing_perms)
-        await interaction.response.send_message(
-            f"Necesito estos permisos como mínimo para funcionar correctamente: {missing_list}, si quieres modificar el comportamiento del bot comunicale a un administrador que use `/help`",
-            ephemeral=True
-        )
+        await interaction.response.send_message(f"Necesito estos permisos como mínimo para funcionar correctamente: {missing_list}", ephemeral=True)
 
     if isinstance(error, app_commands.CheckFailure):
         await interaction.response.send_message("Para ejecutar este comando necesitas permisos de administrador", ephemeral=True)
@@ -179,12 +222,46 @@ async def erase_local_variables(interaction: discord.Interaction, variable: Lite
 @bot.tree.command(description="Explicación sobre el funcionamiento del bot", name="help")
 async def help_command(interaction: discord.Interaction):
     db = await database.get_from_database(interaction.guild.id)
-    message = f"Al usar el comando `/rulet` con un usuario, hay un 50% de que pierdas, y un 50% de que ganes. Al ganador no le pasará nada, pero el perdedor será aislado temporalmente por `{Utility.format_seconds(db['timeout_seconds'])}`. Si TÚ retas a alguien y pierdes, no podrás usar el bot por `{Utility.format_seconds(db['timeout_seconds'] + db['lose_cooldown'])}`. Se pueden aplicar penalizaciones extra por perder contra un usuario dentro de un chat de voz, estando tu fuera de uno. La configuración puede ser modificada por miembros con permiso de administrador"
-    if interaction.user.resolved_permissions.administrator:
-        message += f"\n \n**Información para administradores:** podeis modificar los ajustes del bot usando `/set ...` para modificar los ajustes como el tiempo de timeout o si la ruleta puede afectar a administradores (actualmente `{'si' if db['annoy_admins'] else 'no'}`) y el comando `/customize ...` para personalizar los mensajes del bot. Por ejemplo: `/customize win $k ha retado a $u y ha ganado` (más información en la descripción del comando). También se puede usar el comando `/disable (minutos)` para desactivar el bot por un cierto tiempo (màximo 1 mes)"
-    if interaction.user.resolved_permissions.administrator and not db['annoy_admins']:
-        message += f"\n \n**Importante:** ningun usuario podrá retar a alguien o con el permiso de administrador, o que su rol más alto sea superior al rol `Rulet bot`. Para que el bot afecte a todos use el comando `/set annoy_admins True`"
-    await interaction.response.send_message(message, ephemeral=True)
+    pages = [
+        discord.Embed(title="General", color=discord.Color.blue(),description=(
+                "Al usar el comando `/rulet` con un usuario, hay un 50% de que pierdas, y un 50% de que ganes. "
+                f"Al ganador no le pasará nada, pero el perdedor será aislado temporalmente por *{Utility.format_seconds(db['timeout_seconds'])}*. "
+                "La configuración puede ser modificada por miembros con permiso de administrador."
+            ),
+        ), discord.Embed(title="Rulet", color=discord.Color.blue(), description=(
+                "Al retar a alguien con `/rulet`, si tienes suerte y ganas el objetivo recibirá un timeout, mientras que tú podrás seguir escribiendo, hablando sin ningún problema e incluso hacer más rulets. "
+                f"En caso de que pierdas, recibirás un timeout de *{Utility.format_seconds(db['timeout_seconds'])}*, y no podrás hacer rulet hasta que pasen *{Utility.format_seconds(db['lose_cooldown'])}* de cooldown. "
+                "Si te retan a ti y pierdes recibirás el timeout igual, pero ningún cooldown del comando"
+            ),
+        ),
+        ]
+    if not interaction.user.resolved_permissions.administrator:
+        await interaction.response.send_message(embed=pages[0], view=PageView(pages), ephemeral=True)
+        return
+    pages.extend([
+        discord.Embed(title="Moderación - general", color=discord.Color.red(), description=(
+                "Puedes modificar los ajustes del bot usando `/set ...` para modificar los ajustes como el tiempo de timeout o el cooldown tras perder un duelo, y el comando `/customize ...` para personalizar los mensajes del bot. "
+                "También se puede usar el comando `/disable (minutos)` para desactivar el bot por un cierto tiempo (máximo 1 mes). "
+                "Para restablecer el bot a los ajustes por defecto usa `/set default`."
+                "Esos tres comandos y las pestañas de moderación del comando `/help` solo lo podrán ver los usuarios que tengan el permiso de administrador.\n \n"
+                "**Importante:** Por defecto solo podrán usar el bot los miembros que su rol máximo esté por encima del rol propio del bot `Rulet bot`. "
+                "Modificando la jerarquía del rol `Rulet bot` puedes configurar que personas serán afectadas y cuales no (más información en la siguiente pestaña)."
+            ),
+        ), discord.Embed(title="Moderación - /set annoy_admins", color=discord.Color.red(), description=(
+                "Con `/set annoy_admins 0/1/2`, puedes modificar quien podrá retar a alguien a un duelo.\n"
+                "- **0 →** Las personas por encima del rol `Rulet bot` no seran afectados por la ruleta (por defecto)\n "
+                "- **1 →** Solo se podrá retar a las personas por debajo de tu rol máximo (o todo el mundo que esté por debajo del rol `Rulet bot` sin importar la jerarquía). Todos los perdedores recibirán un timeout\n"
+                "- **2 →** Todo el mundo podrá ser victima de la ruleta, sin importar la jerarquía"
+            ),
+        ), discord.Embed(title="Moderación - /customize", color=discord.Color.red(), description=(
+                "Puedes modificar los mensajes que envia el bot para customizarlos como quieras. "
+                "Cierta información como los nombres de los involucrados se pueden inserir como parametros. "
+                "Por ejemplo, $k se sustituirá por el nombre del autor, y $u por el del objetivo (no es necesario usarlos todos). "
+                "Si añades un link de una imagen o de un gif al final ese también se mostrará. "
+            ),
+        ),
+    ])
+    await interaction.response.send_message(embed=pages[0], view=PageView(pages), ephemeral=True)
 
 if __name__ == "__main__":
     bot.run(token)

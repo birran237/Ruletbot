@@ -13,10 +13,10 @@ class Customize(commands.GroupCog, name="customize", description="Personalizar m
         return interaction.user.guild_permissions.administrator
 
     @staticmethod
-    async def message_customization(message: str, guild_id: int, field: database.db_fields) -> str:
+    async def message_customization(message: str | None, guild_id: int, field: database.db_fields) -> str:
         if message is None:
             db = await database.get_from_database(guild_id=guild_id)
-            db_message = Utility.format_message(message=db[field])
+            db_message = Utility.format_message(message=str(db[field]))
             return f"El mensaje actual es: {db_message}"
 
         formated_message = Utility.format_message(message=message)
@@ -39,12 +39,6 @@ class Customize(commands.GroupCog, name="customize", description="Personalizar m
     @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
     async def lose(self, interaction: discord.Interaction, message: str | None = None):
         return_message = await self.message_customization(message=message, guild_id=interaction.guild.id,field="lose_message")
-        await interaction.response.send_message(return_message, ephemeral=True)
-
-    @app_commands.command(name="lose_with_penalty",description="Cambia el mensaje de derrota con penalización (deja en blanco para ver ajustes actuales)")
-    @app_commands.describe(message="$k será el nombre del autor, $u del objetivo y $t el tiempo de timeout")
-    async def lose_penalty(self, interaction: discord.Interaction, message: str | None = None):
-        return_message = await self.message_customization(message=message, guild_id=interaction.guild.id,field="lose_penalty_message")
         await interaction.response.send_message(return_message, ephemeral=True)
 
     @app_commands.command(name="wrong_target",description="Cambia el mensaje de cuando un usuario haga rulet a si mismo o a un bot")

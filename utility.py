@@ -1,3 +1,4 @@
+from __future__ import annotations
 import discord
 from discord import app_commands
 from logging.handlers import RotatingFileHandler
@@ -12,7 +13,7 @@ import asyncio
 
 
 # Track running cleanup tasks to prevent duplicates
-_cleanup_tasks: dict[tuple, asyncio.Task] = {}
+CLEANUP_TASKS: dict[tuple, asyncio.Task] = {}
 
 
 def create_logger():
@@ -35,7 +36,7 @@ def create_logger():
 
 class Utility:
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
-    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak"],int]] = {} #(guild_id, member_id) -> {}
+    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak","vc_rulet_available", "vc_rulet_hold"],int]] = {} #(guild_id, member_id) -> {}
 
     class GuildCooldown(app_commands.CheckFailure):
         def __init__(self, expire_at: int) -> None:
@@ -61,12 +62,11 @@ class Utility:
         parts = []
         if days:
             parts.append(f"{days}d")
-        if hours:
+        if hours or parts:
             parts.append(f"{hours}h")
-        if minutes:
+        if minutes or parts:
             parts.append(f"{minutes}m")
-        if seconds or not parts:
-            parts.append(f"{seconds}s")
+        parts.append(f"{seconds}s")
 
         return ' '.join(parts)
 
@@ -118,17 +118,18 @@ class Utility:
         """Wait until the disabled time for a guild has passed, then remove the entry.
         This function ensures only one cleanup task runs per guild_id at a time."""
         task_key = ('disabled_server', guild_id)
-        if task_key in _cleanup_tasks:
-            existing_task = _cleanup_tasks[task_key]
+        if task_key in CLEANUP_TASKS:
+            existing_task = CLEANUP_TASKS[task_key]
             if not existing_task.done():
                 existing_task.cancel()
 
         task = asyncio.create_task(cls._delete_expired_disabled_server_internal(guild_id))
-        _cleanup_tasks[task_key] = task
+        CLEANUP_TASKS[task_key] = task
         try:
             await task
         finally:
-            await _cleanup_tasks.pop(task_key, None)
+            if CLEANUP_TASKS.get(task_key, None) == task:
+                CLEANUP_TASKS.pop(task_key, None)
 
     @staticmethod
     async def _delete_expired_disabled_server_internal(guild_id: int) -> None:
@@ -155,20 +156,20 @@ class Utility:
         task_key = ('user', key)
 
         # Cancel any existing task for this user
-        if task_key in _cleanup_tasks:
-            existing_task = _cleanup_tasks[task_key]
+        if task_key in CLEANUP_TASKS:
+            existing_task = CLEANUP_TASKS[task_key]
             if not existing_task.done():
                 existing_task.cancel()
 
         # Create and store the new task
         task = asyncio.create_task(cls._delete_expired_user_internal(guild_id, member_id))
-        _cleanup_tasks[task_key] = task
+        CLEANUP_TASKS[task_key] = task
 
         try:
             await task
         finally:
-            # Clean up the task reference when done
-            await _cleanup_tasks.pop(task_key, None)
+            if CLEANUP_TASKS.get(task_key, None) == task:
+                CLEANUP_TASKS.pop(task_key, None)
 
     @staticmethod
     async def _delete_expired_user_internal(guild_id: int, member_id: int) -> None:
@@ -236,8 +237,10 @@ class Utility:
         cls.disabled_servers.pop(guild.id, None)
 
     @classmethod
-    def _get_user_status(cls, member: discord.Member) -> None:
+    def _get_user_status(cls, member: discord.Member | discord.User) -> None:
         """Check if the user is on cooldown/timeout and handle cooldown logic."""
+        if isinstance(member, discord.User):
+            return
         key: tuple[int, int] = (member.guild.id, member.id)
         if key not in cls.users_status:
             return
@@ -257,6 +260,58 @@ class Utility:
         # Clean up expired cooldown/timeout values
         cls.users_status[key].pop('cooldown_until', None)
         cls.users_status[key].pop('timeout_until', None)
+
+class PageView(discord.ui.View):
+    def __init__(self, pages: list[discord.Embed], timeout: float = 180):
+        super().__init__(timeout=timeout)
+
+        self.pages = pages
+        self.current_page = 0
+
+        self.update_buttons()
+
+    def update_buttons(self):
+        """Update the enabled/disabled state of the navigation buttons."""
+        self.first_button.disabled = self.current_page == 0
+        self.previous_button.disabled = self.current_page == 0
+        self.label_button.label = f"{self.current_page + 1} / {len(self.pages)}"
+        self.next_button.disabled = self.current_page == len(self.pages) - 1
+        self.last_button.disabled = self.current_page == len(self.pages) - 1
+
+
+    @discord.ui.button(label="◄◄", style=discord.ButtonStyle.secondary, row=1)
+    async def first_button(self: PageView, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = 0
+
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(label="◄", style=discord.ButtonStyle.secondary, row=1)
+    async def previous_button(self: PageView, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(label="1/1", style=discord.ButtonStyle.secondary, row=1, disabled=True)
+    async def label_button(self: PageView, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+    @discord.ui.button(label="►", style=discord.ButtonStyle.secondary, row=1)
+    async def next_button(self: PageView, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < len(self.pages) - 1:
+            self.current_page += 1
+
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(label="►►", style=discord.ButtonStyle.secondary, row=1)
+    async def last_button(self: PageView, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = len(self.pages) - 1
+
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
 
 class Loader:
     state_path = "state.pkl"

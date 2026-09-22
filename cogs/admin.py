@@ -94,17 +94,23 @@ class Admin(commands.Cog):
         await interaction.response.send_message(f"Tiempo de cooldown configurado a {Utility.format_seconds(seconds)}", ephemeral=True)
 
 
-    @admin_group.command(name="annoy_admins", description="Elige si afecta o no a los roles superiores al del bot (deja en blanco para ver ajustes actuales)")
-    async def set_annoy_admins(self, interaction: discord.Interaction, affect_admins: bool | None = None):
-        if affect_admins is None:
+    @admin_group.command(name="annoy_admins", description="Modifica el comportamiento del bot hacia los administradores")
+    async def set_annoy_admins(self, interaction: discord.Interaction, level: int | None = None):
+        message = [
+            "- 0 → Las personas por encima del rol `Rulet bot` no seran afectados por la ruleta (por defecto)",
+            "- 1 → Solo se podrá retar a las personas por debajo de tu rol máximo (o todo el mundo que esté por debajo del rol `Rulet bot` sin importar la jerarquía). Todos los perdedores recibirán un timeout",
+            "- 2 → Todo el mundo podrá ser victima de la ruleta, sin importar la jerarquía"
+        ]
+        if level is None:
             db = await database.get_from_database(guild_id=interaction.guild_id)
-            message_mod = "también" if db['annoy_admins'] else "no"
-            await interaction.response.send_message(f"La ruleta {message_mod} afecta a los roles superiores al mio y a los administradores", ephemeral=True)
+            current_level = int(max(0, min(db['annoy_admins'],2)))
+            message[current_level] = f"**{message[current_level]}**"
+            await interaction.response.send_message('\n'.join(message), ephemeral=True)
             return
 
-        await database.save_to_database(guild_id=interaction.guild_id, field="annoy_admins", data=affect_admins)
-        message_mod = "también" if affect_admins else "ya no"
-        await interaction.response.send_message(f"A partir de ahora la ruleta {message_mod} afectará a los roles superiores al mio o a administradores",ephemeral=True)
+        await database.save_to_database(guild_id=interaction.guild_id, field="annoy_admins", data=level)
+        message[level] = f"**{message[level]}**"
+        await interaction.response.send_message('\n'.join(message), ephemeral=True)
 
 
     @admin_group.command(name="default", description="Devuelve los ajustes del bot a valores por defecto")
