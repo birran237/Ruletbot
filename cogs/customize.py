@@ -9,7 +9,7 @@ class Customize(commands.GroupCog, name="customize", description="Personalizar m
     def __init__(self, bot):
         self.bot = bot
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+    async def interaction_check(self, interaction: discord.Interaction):
         return interaction.user.guild_permissions.administrator
 
     @staticmethod

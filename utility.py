@@ -8,12 +8,14 @@ import signal, sys, os, pickle
 from collections import OrderedDict
 from string import Template
 import database
-from typing import Literal
+from typing import Literal, Any, TypeAlias
 import asyncio
+from collections import defaultdict
 
 
 # Track running cleanup tasks to prevent duplicates
-CLEANUP_TASKS: dict[tuple, asyncio.Task] = {}
+CLEANUP_TASKS_KEY: TypeAlias = tuple[Literal['disabled_server', 'disabled_user'], Any]
+CLEANUP_TASKS: dict[CLEANUP_TASKS_KEY, asyncio.Task] = {}
 
 
 def create_logger():
@@ -36,7 +38,7 @@ def create_logger():
 
 class Utility:
     disabled_servers: dict[int, int] = {} #guild_id -> disabled until
-    users_status: dict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak","vc_rulet_available", "vc_rulet_hold"],int]] = {} #(guild_id, member_id) -> {}
+    users_status: defaultdict[tuple[int, int], dict[Literal["cooldown_until","timeout_until","streak_expiates","streak","vc_rulet_available", "vc_rulet_hold"],int]] = defaultdict(dict) #(guild_id, member_id) -> {}
 
     class GuildCooldown(app_commands.CheckFailure):
         def __init__(self, expire_at: int) -> None:
@@ -73,20 +75,21 @@ class Utility:
     @staticmethod
     def format_message(message: str, author: discord.User | discord.Member | None = None, target: discord.User | discord.Member | None = None, victim: discord.User | discord.Member | None = None) -> str:
         mapper = {'k': "*autor*", 'u': "*objetivo*", 't': "*x minutos*", 'r':"*n*"}
-
         if author is not None:
-            mapper['k'] = author.display_name
             key: tuple[int, int] = (author.guild.id, author.id)
+            author_status = Utility.users_status.get(key, {})
+            mapper['k'] = author.display_name
             try:
-                mapper['r'] = str(Utility.users_status[key].get("streak",0))
+                mapper['r'] = str(author_status.get("streak",0))
             except KeyError:
                 mapper['r'] = "0"
         if target is not None:
             mapper['u'] = target.mention
         if victim is not None:
             key: tuple[int, int] = (victim.guild.id, victim.id)
+            victim_status = Utility.users_status.get(key, {})
             try:
-                timeout_until = Utility.users_status[key].get("timeout_until",time())
+                timeout_until = victim_status.get("timeout_until",time())
             except KeyError:
                 timeout_until = time()
             mapper['t'] = f"<t:{timeout_until}:R>"
@@ -113,23 +116,26 @@ class Utility:
                 raise cls.MissingPerms(missing_perms)
             return True
         return app_commands.check(predicate)
-    @classmethod
-    async def delete_expired_disabled_server(cls, guild_id: int) -> None:
-        """Wait until the disabled time for a guild has passed, then remove the entry.
-        This function ensures only one cleanup task runs per guild_id at a time."""
-        task_key = ('disabled_server', guild_id)
+
+    @staticmethod
+    async def handle_cleanup_tasks(task: asyncio.Task, task_key: CLEANUP_TASKS_KEY) -> None:
         if task_key in CLEANUP_TASKS:
             existing_task = CLEANUP_TASKS[task_key]
             if not existing_task.done():
                 existing_task.cancel()
 
-        task = asyncio.create_task(cls._delete_expired_disabled_server_internal(guild_id))
         CLEANUP_TASKS[task_key] = task
-        try:
-            await task
-        finally:
-            if CLEANUP_TASKS.get(task_key, None) == task:
+        def task_cleanup(parent_task: asyncio.Task) -> None:
+            if CLEANUP_TASKS.get(task_key, None) == parent_task:
                 CLEANUP_TASKS.pop(task_key, None)
+        task.add_done_callback(task_cleanup)
+
+    @classmethod
+    async def delete_expired_disabled_server(cls, guild_id: int) -> None:
+        task_key = ('disabled_server', guild_id)
+        task = asyncio.create_task(cls._delete_expired_disabled_server_internal(guild_id))
+        await cls.handle_cleanup_tasks(task=task, task_key=task_key)
+        await task
 
     @staticmethod
     async def _delete_expired_disabled_server_internal(guild_id: int) -> None:
@@ -144,32 +150,17 @@ class Utility:
                 # The disabled time has passed, remove the entry
                 Utility.disabled_servers.pop(guild_id, None)
                 return
-            wait_time = disabled_until - now
+            wait_time = disabled_until - now + 1
             await asyncio.sleep(wait_time)
 
 
     @classmethod
     async def delete_expired_user(cls, guild_id: int, member_id: int) -> None:
-        """Wait until all expiration times for a user have passed, then remove the entry.
-        This function ensures only one cleanup task runs per user at a time."""
         key = (guild_id, member_id)
-        task_key = ('user', key)
-
-        # Cancel any existing task for this user
-        if task_key in CLEANUP_TASKS:
-            existing_task = CLEANUP_TASKS[task_key]
-            if not existing_task.done():
-                existing_task.cancel()
-
-        # Create and store the new task
+        task_key = ('disabled_user', key)
         task = asyncio.create_task(cls._delete_expired_user_internal(guild_id, member_id))
-        CLEANUP_TASKS[task_key] = task
-
-        try:
-            await task
-        finally:
-            if CLEANUP_TASKS.get(task_key, None) == task:
-                CLEANUP_TASKS.pop(task_key, None)
+        await cls.handle_cleanup_tasks(task=task, task_key=task_key)
+        await task
 
     @staticmethod
     async def _delete_expired_user_internal(guild_id: int, member_id: int) -> None:
@@ -196,7 +187,7 @@ class Utility:
                 Utility.users_status.pop(key, None)
                 return
 
-            wait_time = max_expiration - now
+            wait_time = max_expiration - now + 1
             await asyncio.sleep(wait_time)
 
     @classmethod
@@ -331,18 +322,18 @@ class Loader:
     @classmethod
     def _process_temp_dicts(cls):
         if not os.path.isfile(cls.state_path):
-            return OrderedDict(), {}, {}
+            return OrderedDict(), {}, defaultdict(dict)
 
         with open(cls.state_path, 'rb') as f:
             try:
                 data = pickle.load(f)
             except EOFError:
-                return OrderedDict(), {}, {}
+                return OrderedDict(), {}, defaultdict(dict)
 
             return (
                 data.get("local_db",OrderedDict()),
                 data.get("disabled_servers", {}),
-                data.get("users_status", {})
+                data.get("users_status", defaultdict(dict))
             )
 
     @classmethod

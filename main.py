@@ -1,4 +1,4 @@
-from utility import Utility, Loader, PageView, CLEANUP_TASKS
+from utility import Utility, Loader, PageView
 import database
 import discord
 from discord.ext import commands
@@ -7,7 +7,7 @@ from time import time
 import logging, os, asyncio
 from dotenv import load_dotenv
 from typing import Literal
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 log = logging.getLogger(__name__)
 
@@ -72,57 +72,37 @@ class Bot(commands.Bot):
                 await handle_leave_vc(member)
             return
 
-        key: tuple[int, int] = (member.guild.id, member.id)
-        if key not in Utility.users_status:
-            Utility.users_status[key] = {}
-
         if await check_force_timeout(member):
             await member.move_to(channel=None, reason="Ha perdido")
             return
 
-        if 'vc_rulet_available' not in Utility.users_status[key]:
-            #user will be able to use the rulet in 5 minutes after joining vc
-            Utility.users_status[key]['vc_rulet_available'] = int(time() + 5*60)
+        key: tuple[int, int] = (member.guild.id, member.id)
+        user_status = Utility.users_status.get(key, {})
+
+        if 'vc_rulet_available' not in user_status and user_status.get("vc_rulet_hold", 0) > int(time()):
+            #user will be able to use the rulet in 10 minutes after joining vc
+            Utility.users_status[key]['vc_rulet_available'] = int(time() + 10*60)
 
 async def handle_leave_vc(member: discord.Member) -> None:
     key: tuple[int, int] = (member.guild.id, member.id)
-    if key not in Utility.users_status[key]:
-        return
-    user_status = Utility.users_status[key]
-    if "vc_rulet_available" not in user_status or user_status.get("vc_rulet_available", 0) < time():
+    user_status = Utility.users_status.get(key,{})
+    if user_status.get("vc_rulet_available", 0) < time():
         return
     db = await database.get_from_database(member.guild.id)
-
-    task_key = ("vc_hold", key)
-    if task_key in CLEANUP_TASKS:
-        existing_task = CLEANUP_TASKS[task_key]
-        if not existing_task.done():
-            existing_task.cancel()
-
-    # Create and store the new task
-    hold_time = db["timeout_seconds"] + 60
+    hold_time = db["timeout_seconds"] + 30
     Utility.users_status[key]["vc_rulet_hold"] = int(hold_time + time())
-    task = asyncio.create_task(_handle_leave_vc_internal(member, hold_time))
-    CLEANUP_TASKS[task_key] = task
+    task = asyncio.create_task(Utility.delete_expired_user(member.guild.id, member.id))
 
-async def _handle_leave_vc_internal(member: discord.Member, hold_time: int) -> None:
-    key: tuple[int,int] = (member.guild.id, member.id)
-    while True:
-        await asyncio.sleep(hold_time)
-        if key not in Utility.users_status[key]:
-            return
-        if Utility.users_status[key].get("vc_rulet_hold", 0) < time() + hold_time:
-            Utility.users_status[key].pop("vc_rulet_hold", 0)
-            Utility.users_status[key].pop("vc_rulet_available", 0)
-            return
-        hold_time = int(Utility.users_status[key].get("vc_rulet_hold", 0) - time())
+    task_key = ('disabled_user', key)
+    await Utility.handle_cleanup_tasks(task=task, task_key=task_key)
+    await task
 
 async def check_force_timeout(member: discord.Member) -> bool:
     if not member.guild_permissions.administrator and member.top_role < member.guild.me.top_role and member != member.guild.owner:
         return False
 
     key: tuple[int, int] = (member.guild.id, member.id)
-    if "timeout_until" not in Utility.users_status[key]:
+    if key not in Utility.users_status or "timeout_until" not in Utility.users_status.get(key, {}):
         return False
     remaining: float = Utility.users_status[key].get("timeout_until", 0) - time()
     if remaining <= 0:
@@ -205,9 +185,20 @@ async def sync_tree(interaction: discord.Interaction):
 async def erase_local_variables(interaction: discord.Interaction, variable: Literal["local_db","disabled_servers","disabled_users", "all", "none"]):
     match variable:
         case "none":
-            await interaction.response.send_message(f"Hay {len(database.local_db)} elementos de la base de datos local, {len(Utility.disabled_servers)} elementos de los servidores deshabilitados y {len(Utility.users_status)} elementos de los usuarios deshabilitados")
+            message = ["- local_db:"]
+            for guild_id, content in database.local_db.items():
+                message.append(f"  - {bot.get_guild(guild_id)}({guild_id}): {content}")
+            message.append(f"- disabled_servers:")
+            for guild_id, timeout_time in Utility.disabled_servers.items():
+                message.append(f"  - {bot.get_guild(guild_id)}({guild_id}): <t:{timeout_time}:f>")
+            message.append(f"- disabled_users:")
+            for key, content in Utility.users_status.items():
+                guild = bot.get_guild(key[0])
+                modified_dict = {k: f'<t:{v}:f>' if v > 10_000 else v for k, v in content.items()}
+                message.append(f"  - {guild.get_member(key[1])}({key[1]}) in {guild}({key[0]}): {modified_dict}")
+            await interaction.response.send_message('\n'.join(message))
         case "all":
-            database.local_db, Utility.disabled_servers, Utility.users_status = OrderedDict(), {}, {}
+            database.local_db, Utility.disabled_servers, Utility.users_status = OrderedDict(), {}, defaultdict(dict)
             await interaction.response.send_message(f"Se ha reseteado toda la base de datos local")
         case "local_db":
             await interaction.response.send_message(f"Se han eliminado {len(database.local_db)} elementos de la base de datos local")
@@ -217,7 +208,7 @@ async def erase_local_variables(interaction: discord.Interaction, variable: Lite
             Utility.disabled_servers = {}
         case "disabled_users":
             await interaction.response.send_message(f"Se han eliminado {len(Utility.users_status)} elementos de los usuarios deshabilitados")
-            Utility.users_status = {}
+            Utility.users_status = defaultdict(dict)
 
 @bot.tree.command(description="Explicación sobre el funcionamiento del bot", name="help")
 async def help_command(interaction: discord.Interaction):

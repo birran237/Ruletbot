@@ -4,13 +4,12 @@ from discord.ext import commands
 import database
 from time import time
 from utility import Utility
-import asyncio
 
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+    async def interaction_check(self, interaction: discord.Interaction):
         return interaction.user.guild_permissions.administrator
 
     admin_group = app_commands.Group(name="set", description="Modificar ajustes del bot",default_permissions=discord.Permissions(administrator=True))
@@ -74,7 +73,7 @@ class Admin(commands.Cog):
     async def set_timeout(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 600] | None = None):
         db = await database.get_from_database(guild_id=interaction.guild_id)
         if seconds is None:
-            await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {Utility.format_seconds(db.timeout_seconds)}", ephemeral=True)
+            await interaction.response.send_message(f"Ahora mismo la rulet está configurada para {Utility.format_seconds(db['timeout_seconds'])}", ephemeral=True)
             return
 
         await database.save_to_database(guild_id=interaction.guild_id, field="timeout_seconds", data=seconds)
