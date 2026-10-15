@@ -76,6 +76,8 @@ async def del_guild_database(guild_id: int) -> None:
         pass
 
     doc_ref = db.collection("guild_config").document(str(guild_id))
-    for docs in doc_ref.get().to_dict():
+    doc = doc_ref.get().to_dict() if doc_ref.get().exists else {}
+    assert isinstance(doc, dict)
+    for docs in doc:
         doc_ref.update({docs: firestore.DELETE_FIELD})
     doc_ref.delete()
